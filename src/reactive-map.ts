@@ -3,7 +3,7 @@ import { ZMap } from "./z-map";
 import { ReactiveSet } from "./reactive-set";
 
 export class ReactiveMap<K, V> {
-  private readonly materialized: ReactiveValue<ZMap<K, V>>;
+  private readonly _materialized: ReactiveValue<ZMap<K, V>>;
   private readonly previousStep: ReactiveValue<ZMap<K, V>>;
   private readonly _changes: ReactiveValue<ZMap<K, V>>;
 
@@ -11,11 +11,11 @@ export class ReactiveMap<K, V> {
     snapshot = snapshot ?? new ZMap<K, V>();
     this._changes = changes;
 
-    this.materialized = changes.accumulate(snapshot, (acc, x) => {
+    this._materialized = changes.accumulate(snapshot, (acc, x) => {
       return acc.union(x);
     });
 
-    this.previousStep = this.materialized.delay(snapshot);
+    this.previousStep = this._materialized.delay(snapshot);
   }
 
   get previousSnapshot(): ZMap<K, V> {
@@ -23,11 +23,15 @@ export class ReactiveMap<K, V> {
   }
 
   get snapshot(): ZMap<K, V> {
-    return this.materialized.value;
+    return this._materialized.value;
   }
 
   get changes(): ReactiveValue<ZMap<K, V>> {
     return this._changes;
+  }
+
+  get materialized(): ReactiveValue<ZMap<K, V>> {
+    return this._materialized;
   }
 
   join<V1>(other: ReactiveMap<K, V1>): ReactiveMap<K, readonly [V, V1]> {

@@ -4,14 +4,14 @@ import { ZMap } from "./z-map";
 import { ReactiveMap } from "./reactive-map";
 
 export class ReactiveSet<T> {
-  private readonly materialized: ReactiveValue<ZSet<T>>;
   private readonly previousStep: ReactiveValue<ZSet<T>>;
+  private readonly _materialized: ReactiveValue<ZSet<T>>;
   private readonly _changes: ReactiveValue<ZSet<T>>;
 
   constructor(changes: ReactiveValue<ZSet<T>>, snapshot?: ZSet<T>) {
     snapshot = snapshot ?? new ZSet<T>();
     this._changes = changes;
-    this.materialized = changes.accumulate(snapshot, (acc, x) => {
+    this._materialized = changes.accumulate(snapshot, (acc, x) => {
       return acc.union(x);
     });
     this.previousStep = this.materialized.delay(snapshot);
@@ -27,6 +27,10 @@ export class ReactiveSet<T> {
 
   get changes(): ReactiveValue<ZSet<T>> {
     return this._changes;
+  }
+
+  get materialized(): ReactiveValue<ZSet<T>> {
+    return this._materialized;
   }
 
   groupBy<K>(func: (t: T) => K): ReactiveMap<K, T> {
