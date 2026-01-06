@@ -14,6 +14,10 @@ export class ZSetChangeInput<T> extends ReactiveValue<ZSet<T>> {
     this.pending = this.pending.add(item, weight);
   }
 
+  push(set: ZSet<T>): void {
+    this.pending = this.pending.union(set);
+  }
+
   step(): void {
     this.current = this.pending;
     this.pending = new ZSet<T>();

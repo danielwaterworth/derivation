@@ -15,4 +15,8 @@ export class ReactiveSetSource<K> extends ReactiveSet<K> {
   add(k: K, weight = 1): void {
     this.input.add(k, weight);
   }
+
+  push(set: ZSet<K>): void {
+    this.input.push(set);
+  }
 }

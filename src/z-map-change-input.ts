@@ -14,6 +14,10 @@ export class ZMapChangeInput<K, V> extends ReactiveValue<ZMap<K, V>> {
     this.pending = this.pending.add(k1, k2, weight);
   }
 
+  push(set: ZMap<K, V>): void {
+    this.pending = this.pending.union(set);
+  }
+
   step(): void {
     this.current = this.pending;
     this.pending = new ZMap<K, V>();

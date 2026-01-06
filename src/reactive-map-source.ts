@@ -15,4 +15,8 @@ export class ReactiveMapSource<K, V> extends ReactiveMap<K, V> {
   add(k1: K, k2: V, weight = 1): void {
     this.input.add(k1, k2, weight);
   }
+
+  push(set: ZMap<K, V>): void {
+    this.input.push(set);
+  }
 }
