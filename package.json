@@ -2,10 +2,10 @@
   "name": "derivation",
   "version": "0.1.0",
   "description": "A simple IVM (Incremental View Maintenence) library inspired by DBSP (Database Stream Processor).",
-  "homepage": "https://github.com/danielwaterworth/derivation",
+  "homepage": "https://github.com/derivationjs/derivation",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danielwaterworth/derivation.git"
+    "url": "git+https://github.com/derivationjs/derivation.git"
   },
   "author": "Daniel Waterworth",
   "license": "MIT",
