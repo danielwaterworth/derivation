@@ -194,6 +194,10 @@ describe("streaming core", () => {
     zm.add("a", 1, 3);
     counter.add(5);
 
+    expect([...zs.value.getEntries()].length).toBe(0);
+    expect([...zm.value.getEntries()].length).toBe(0);
+    expect(counter.value).toBe(0);
+
     c.step();
 
     expect([...zs.value.getEntries()]).toContainEqual([10, 2]);

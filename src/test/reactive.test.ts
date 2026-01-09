@@ -5,6 +5,7 @@ import { ZMapChangeInput } from "../z-map-change-input";
 import { ReactiveSet } from "../reactive-set";
 import { ReactiveMap } from "../reactive-map";
 import { ZMap } from "../z-map";
+import { Tuple } from "../tuple";
 
 describe("ReactiveSet", () => {
   it("accumulates and materializes over steps", () => {
@@ -45,6 +46,8 @@ describe("ReactiveSet", () => {
     inputB.add(2);
     inputB.add(3);
 
+    c.step();
+
     const rsA = new ReactiveSet(inputA);
     const rsB = new ReactiveSet(inputB);
 
@@ -54,8 +57,6 @@ describe("ReactiveSet", () => {
       (y) => y,
       (a, b) => a + b,
     );
-
-    c.step();
 
     const snapshot = joined.snapshot;
     const entries = [...snapshot.getEntries()].map(([v, w]) => [v, w]);
@@ -78,9 +79,30 @@ describe("ReactiveSet", () => {
     const flat = doubled.flatten();
 
     const entries = [...flat.snapshot.getEntries()];
-    const got = entries.map(([v, w]) => [v, w]);
-    expect(got).toContainEqual([2, 1]);
-    expect(got).toContainEqual([4, 1]);
+    expect(entries).toContainEqual([2, 1]);
+    expect(entries).toContainEqual([4, 1]);
+  });
+
+  it("ReactiveMap setup", () => {
+    const c = new Coordinator();
+    const change = new ZMapChangeInput<string, number>(c);
+    const reactive = new ReactiveMap(change);
+
+    change.add("foo", 1);
+
+    expect([...reactive.previousMaterialized.value.getEntries()].length).toBe(
+      0,
+    );
+    expect([...reactive.materialized.value.getEntries()].length).toBe(0);
+    expect([...reactive.changes.value.getEntries()].length).toBe(0);
+
+    c.step();
+
+    expect([...reactive.previousMaterialized.value.getEntries()].length).toBe(
+      0,
+    );
+    expect([...reactive.materialized.value.getEntries()].length).toBe(1);
+    expect([...reactive.changes.value.getEntries()].length).toBe(1);
   });
 
   it("ReactiveMap join combines maps by key", () => {
@@ -100,14 +122,17 @@ describe("ReactiveSet", () => {
 
     c.step();
 
-    const entries = [...joined.snapshot.getEntries()];
-    const formatted = entries.map(([k, row, w]) => [
-      k,
-      `${row.get(0)}:${row.get(1)}`,
-      w,
-    ]);
-    expect(formatted).toContainEqual(["x", "10:A", 1]);
-    expect(formatted.some(([k]) => k === "y")).toBe(false);
+    let entries = [...joined.snapshot.getEntries()];
+    expect(entries).toContainEqual(["x", Tuple(10, "A"), 1]);
+    expect(entries.some(([k]) => k === "y")).toBe(false);
+
+    left.add("y", 20);
+
+    c.step();
+
+    entries = [...joined.snapshot.getEntries()];
+    expect(entries).toContainEqual(["x", Tuple(10, "A"), 1]);
+    expect(entries).toContainEqual(["y", Tuple(20, "B"), 1]);
   });
 
   it("ReactiveMap initializes correctly with snapshot", () => {

@@ -11,11 +11,7 @@ export class ReactiveMap<K, V> {
   constructor(changes: ReactiveValue<ZMap<K, V>>, snapshot?: ZMap<K, V>) {
     snapshot = snapshot ?? new ZMap<K, V>();
     this._changes = changes;
-
-    this._materialized = changes.accumulate(snapshot, (acc, x) => {
-      return acc.union(x);
-    });
-
+    this._materialized = changes.accumulate(snapshot, (acc, x) => acc.union(x));
     this.previousStep = this._materialized.delay(snapshot);
   }
 
@@ -35,10 +31,28 @@ export class ReactiveMap<K, V> {
     return this._materialized;
   }
 
+  get previousMaterialized(): ReactiveValue<ZMap<K, V>> {
+    return this.previousStep;
+  }
+
+  union(other: ReactiveMap<K, V>): ReactiveMap<K, V> {
+    return new ReactiveMap(
+      this._changes.zip(other._changes, (x, y) => x.union(y)),
+      this.previousSnapshot.union(other.previousSnapshot),
+    );
+  }
+
   join<V1>(other: ReactiveMap<K, V1>): ReactiveMap<K, Tuple<[V, V1]>> {
     return new ReactiveMap(
-      this._changes.zip(other._changes, (x, y) => x.join(y)),
-      this.previousSnapshot.join(other.snapshot),
+      this.changes.zip3(
+        this.previousMaterialized,
+        other.changes,
+        other.previousMaterialized,
+        (tC, tM, oC, oM) => {
+          return tC.join(oM).union(tM.join(oC)).union(tC.join(oC));
+        },
+      ),
+      this.previousSnapshot.join(other.previousSnapshot),
     );
   }
 
