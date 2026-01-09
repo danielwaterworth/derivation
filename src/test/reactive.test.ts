@@ -101,7 +101,11 @@ describe("ReactiveSet", () => {
     c.step();
 
     const entries = [...joined.snapshot.getEntries()];
-    const formatted = entries.map(([k, [v1, v2], w]) => [k, `${v1}:${v2}`, w]);
+    const formatted = entries.map(([k, row, w]) => [
+      k,
+      `${row.get(0)}:${row.get(1)}`,
+      w,
+    ]);
     expect(formatted).toContainEqual(["x", "10:A", 1]);
     expect(formatted.some(([k]) => k === "y")).toBe(false);
   });

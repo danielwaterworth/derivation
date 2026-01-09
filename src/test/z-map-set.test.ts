@@ -70,7 +70,7 @@ describe("ZSet", () => {
 
     const p = a.product(b);
     const got = [...p.getEntries()].map(
-      ([k, w]) => [`${k[0]}:${k[1]}`, w] as const,
+      ([k, w]) => [`${k.get(0)}:${k.get(1)}`, w] as const,
     );
     expect(sortPairs(got)).toEqual(
       sortPairs([
@@ -153,7 +153,7 @@ describe("ZMap", () => {
     const joined = left.join(right);
 
     const got = [...joined.getEntries()].map(
-      ([k, pair, w]) => [k, `${pair[0]}:${pair[1]}`, w] as const,
+      ([k, pair, w]) => [k, `${pair.get(0)}:${pair.get(1)}`, w] as const,
     );
 
     expect(sortTriples(got)).toEqual(

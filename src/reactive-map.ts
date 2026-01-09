@@ -1,6 +1,7 @@
 import { ReactiveValue } from "./streaming";
 import { ZMap } from "./z-map";
 import { ReactiveSet } from "./reactive-set";
+import { Tuple } from "./tuple";
 
 export class ReactiveMap<K, V> {
   private readonly _materialized: ReactiveValue<ZMap<K, V>>;
@@ -34,8 +35,8 @@ export class ReactiveMap<K, V> {
     return this._materialized;
   }
 
-  join<V1>(other: ReactiveMap<K, V1>): ReactiveMap<K, readonly [V, V1]> {
-    return new ReactiveMap<K, readonly [V, V1]>(
+  join<V1>(other: ReactiveMap<K, V1>): ReactiveMap<K, Tuple<[V, V1]>> {
+    return new ReactiveMap(
       this._changes.zip(other._changes, (x, y) => x.join(y)),
       this.previousSnapshot.join(other.snapshot),
     );

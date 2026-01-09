@@ -49,7 +49,7 @@ export class ReactiveSet<T> {
   ): ReactiveSet<TResult> {
     return this.groupBy(thisKeySelector)
       .join(other.groupBy(otherKeySelector))
-      .mapValues(([a, b]) => resultSelector(a, b))
+      .mapValues((row) => resultSelector(row.get(0), row.get(1)))
       .flatten();
   }
 }

@@ -16,6 +16,7 @@ export { ReactiveSet } from "./reactive-set";
 export { ReactiveMapSource } from "./reactive-map-source";
 export { ReactiveSetSource } from "./reactive-set-source";
 export { Input } from "./input";
+export { Tuple } from "./tuple";
 
 export class Graph {
   private readonly coordinator: Coordinator;

@@ -1,5 +1,6 @@
 import { ZMap } from "./z-map";
 import { Map as IMap } from "immutable";
+import { Tuple } from "./tuple";
 
 export type ZSetEntry<T> = readonly [item: T, weight: number];
 
@@ -65,15 +66,15 @@ export class ZSet<T> {
     return next === this.entries ? this : new ZSet(next);
   }
 
-  product<A>(other: ZSet<A>): ZSet<readonly [T, A]> {
-    let result = IMap<readonly [T, A], number>();
+  product<A>(other: ZSet<A>): ZSet<Tuple<[T, A]>> {
+    let result = IMap<Tuple<[T, A]>, number>();
 
     for (const [xItem, xWeight] of this.entries) {
       for (const [yItem, yWeight] of other.entries) {
         const w = xWeight * yWeight;
         if (w === 0) continue;
 
-        const key = [xItem, yItem] as const;
+        const key = Tuple(xItem, yItem);
         const prev = result.get(key) ?? 0;
         const upd = prev + w;
 

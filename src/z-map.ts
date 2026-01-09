@@ -1,5 +1,6 @@
 import { ZSet } from "./z-set";
 import { Map as IMap } from "immutable";
+import { Tuple } from "./tuple";
 
 export type ZMapEntry<K, V> = readonly [k1: K, k2: V, weight: number];
 
@@ -83,8 +84,8 @@ export class ZMap<K, V> {
     return next === this.entries ? this : new ZMap(next);
   }
 
-  join<V1>(other: ZMap<K, V1>): ZMap<K, readonly [V, V1]> {
-    let result = IMap<K, ZSet<readonly [V, V1]>>();
+  join<V1>(other: ZMap<K, V1>): ZMap<K, Tuple<[V, V1]>> {
+    let result = IMap<K, ZSet<Tuple<[V, V1]>>>();
 
     for (const [k, left] of this.entries) {
       const right = other.entries.get(k);
