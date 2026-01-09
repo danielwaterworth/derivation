@@ -55,4 +55,11 @@ export class ReactiveMap<K, V> {
       this.previousSnapshot.flatten(),
     );
   }
+
+  getConst(key: K): ReactiveSet<V> {
+    return new ReactiveSet<V>(
+      this._changes.map((x) => x.get(key)),
+      this.previousSnapshot.get(key),
+    );
+  }
 }
