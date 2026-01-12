@@ -15,6 +15,8 @@ export { ReactiveMap } from "./reactive-map.js";
 export { ReactiveSet } from "./reactive-set.js";
 export { ReactiveMapSource } from "./reactive-map-source.js";
 export { ReactiveSetSource } from "./reactive-set-source.js";
+export { ZSetChangeInput } from "./z-set-change-input.js";
+export { ZMapChangeInput } from "./z-map-change-input.js";
 export { Input } from "./input.js";
 export { Tuple } from "./tuple.js";
 
