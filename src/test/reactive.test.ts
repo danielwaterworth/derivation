@@ -143,4 +143,169 @@ describe("ReactiveSet", () => {
     const rm = new ReactiveMap(input, initial);
     expect([...rm.snapshot.getEntries()].length).toBe(1);
   });
+
+  it("ReactiveSet union combines two sets", () => {
+    const c = new Coordinator();
+    const input1 = new ZSetChangeInput<string>(c);
+    const input2 = new ZSetChangeInput<string>(c);
+
+    const rs1 = new ReactiveSet(input1);
+    const rs2 = new ReactiveSet(input2);
+    const union = rs1.union(rs2);
+
+    input1.add("a", 2);
+    input2.add("a", 3);
+    input2.add("b", 1);
+    c.step();
+
+    expect(union.snapshot.get("a")).toBe(5);
+    expect(union.snapshot.get("b")).toBe(1);
+  });
+
+  it("ReactiveSet intersection incremental updates", () => {
+    const c = new Coordinator();
+    const input1 = new ZSetChangeInput<string>(c);
+    const input2 = new ZSetChangeInput<string>(c);
+
+    input1.add("x", 2);
+    input1.add("y", 3);
+    input2.add("x", 4);
+    input2.add("z", 5);
+    c.step();
+
+    const rs1 = new ReactiveSet(input1);
+    const rs2 = new ReactiveSet(input2);
+    const intersection = rs1.intersection(rs2);
+
+    expect(intersection.snapshot.get("x")).toBe(8);
+    expect(intersection.snapshot.get("y")).toBe(0);
+    expect(intersection.snapshot.get("z")).toBe(0);
+
+    input1.add("z", 2);
+    c.step();
+
+    expect(intersection.snapshot.get("x")).toBe(8);
+    expect(intersection.snapshot.get("z")).toBe(10);
+  });
+
+  it("ReactiveSet difference incremental updates", () => {
+    const c = new Coordinator();
+    const input1 = new ZSetChangeInput<string>(c);
+    const input2 = new ZSetChangeInput<string>(c);
+
+    input1.add("x", 5);
+    input1.add("y", 2);
+    input2.add("x", 3);
+    c.step();
+
+    const rs1 = new ReactiveSet(input1);
+    const rs2 = new ReactiveSet(input2);
+    const diff = rs1.difference(rs2);
+
+    expect(diff.snapshot.get("x")).toBe(2);
+    expect(diff.snapshot.get("y")).toBe(2);
+
+    input2.add("y", 1);
+    c.step();
+
+    expect(diff.snapshot.get("x")).toBe(2);
+    expect(diff.snapshot.get("y")).toBe(1);
+  });
+
+  it("ReactiveSet filter incremental updates", () => {
+    const c = new Coordinator();
+    const input = new ZSetChangeInput<number>(c);
+
+    input.add(5, 1);
+    input.add(15, 2);
+    input.add(25, 1);
+    c.step();
+
+    const rs = new ReactiveSet(input);
+    const filtered = rs.filter((x) => x > 10);
+
+    expect(filtered.snapshot.get(5)).toBe(0);
+    expect(filtered.snapshot.get(15)).toBe(2);
+    expect(filtered.snapshot.get(25)).toBe(1);
+
+    input.add(5, 3);
+    input.add(20, 1);
+    c.step();
+
+    expect(filtered.snapshot.get(5)).toBe(0);
+    expect(filtered.snapshot.get(15)).toBe(2);
+    expect(filtered.snapshot.get(20)).toBe(1);
+    expect(filtered.snapshot.get(25)).toBe(1);
+  });
+
+  it("ReactiveMap intersection incremental updates", () => {
+    const c = new Coordinator();
+    const input1 = new ZMapChangeInput<string, string>(c);
+    const input2 = new ZMapChangeInput<string, string>(c);
+
+    input1.add("k1", "x", 2);
+    input1.add("k2", "y", 3);
+    input2.add("k1", "x", 4);
+    c.step();
+
+    const rm1 = new ReactiveMap(input1);
+    const rm2 = new ReactiveMap(input2);
+    const intersection = rm1.intersection(rm2);
+
+    expect(intersection.snapshot.getValue("k1", "x")).toBe(8);
+    expect(intersection.snapshot.getValue("k2", "y")).toBe(0);
+
+    input2.add("k2", "y", 2);
+    c.step();
+
+    expect(intersection.snapshot.getValue("k1", "x")).toBe(8);
+    expect(intersection.snapshot.getValue("k2", "y")).toBe(6);
+  });
+
+  it("ReactiveMap difference incremental updates", () => {
+    const c = new Coordinator();
+    const input1 = new ZMapChangeInput<string, string>(c);
+    const input2 = new ZMapChangeInput<string, string>(c);
+
+    input1.add("k1", "x", 5);
+    input2.add("k1", "x", 3);
+    c.step();
+
+    const rm1 = new ReactiveMap(input1);
+    const rm2 = new ReactiveMap(input2);
+    const diff = rm1.difference(rm2);
+
+    expect(diff.snapshot.getValue("k1", "x")).toBe(2);
+
+    input1.add("k1", "y", 2);
+    input2.add("k1", "x", 1);
+    c.step();
+
+    expect(diff.snapshot.getValue("k1", "x")).toBe(1);
+    expect(diff.snapshot.getValue("k1", "y")).toBe(2);
+  });
+
+  it("ReactiveMap filter incremental updates", () => {
+    const c = new Coordinator();
+    const input = new ZMapChangeInput<string, number>(c);
+
+    input.add("k1", 5, 1);
+    input.add("k1", 15, 2);
+    input.add("k2", 25, 1);
+    c.step();
+
+    const rm = new ReactiveMap(input);
+    const filtered = rm.filter((k, v) => v > 10);
+
+    expect(filtered.snapshot.getValue("k1", 5)).toBe(0);
+    expect(filtered.snapshot.getValue("k1", 15)).toBe(2);
+    expect(filtered.snapshot.getValue("k2", 25)).toBe(1);
+
+    input.add("k1", 20, 3);
+    c.step();
+
+    expect(filtered.snapshot.getValue("k1", 15)).toBe(2);
+    expect(filtered.snapshot.getValue("k1", 20)).toBe(3);
+    expect(filtered.snapshot.getValue("k2", 25)).toBe(1);
+  });
 });

@@ -84,6 +84,54 @@ export class ZMap<K, V> {
     return next === this.entries ? this : new ZMap(next);
   }
 
+  intersection(other: ZMap<K, V>): ZMap<K, V> {
+    let result = IMap<K, ZSet<V>>();
+
+    for (const [k, left] of this.entries) {
+      const right = other.entries.get(k);
+      if (right) {
+        const intersected = left.intersection(right);
+        if (!intersected.isEmpty()) {
+          result = result.set(k, intersected);
+        }
+      }
+    }
+
+    return new ZMap(result);
+  }
+
+  difference(other: ZMap<K, V>): ZMap<K, V> {
+    if (other.entries.size === 0) return this;
+
+    const next = this.entries.withMutations((m) => {
+      for (const [k1, k2, w] of other.getEntries()) {
+        if (w === 0) continue;
+
+        const row = m.get(k1) ?? new ZSet<V>();
+        const updated = row.add(k2, -w);
+
+        if (updated.isEmpty()) m.remove(k1);
+        else m.set(k1, updated);
+      }
+    });
+
+    return next === this.entries ? this : new ZMap(next);
+  }
+
+  filter(pred: (k: K, v: V) => boolean): ZMap<K, V> {
+    const next = this.entries.withMutations((m) => {
+      m.clear();
+      for (const [k, zset] of this.entries) {
+        const filtered = zset.filter((v) => pred(k, v));
+        if (!filtered.isEmpty()) {
+          m.set(k, filtered);
+        }
+      }
+    });
+
+    return new ZMap(next);
+  }
+
   join<V1>(other: ZMap<K, V1>): ZMap<K, Tuple<[V, V1]>> {
     let result = IMap<K, ZSet<Tuple<[V, V1]>>>();
 
@@ -99,7 +147,7 @@ export class ZMap<K, V> {
   }
 
   mapValues<V1>(func: (v: V) => V1): ZMap<K, V1> {
-    const next = this.entries.map((z) => z.select(func)) as unknown as IMap<
+    const next = this.entries.map((z) => z.map(func)) as unknown as IMap<
       K,
       ZSet<V1>
     >;
@@ -114,7 +162,7 @@ export class ZMap<K, V> {
     return acc;
   }
 
-  toArray(): object {
-    return this.entries.toArray().map(([k, v]) => [k, v.toArray()]);
+  toArray(): ZMapEntry<K, V>[] {
+    return [...this.getEntries()];
   }
 }

@@ -33,6 +33,10 @@ export class ReactiveSet<T> {
     return this._materialized;
   }
 
+  get previousMaterialized(): ReactiveValue<ZSet<T>> {
+    return this.previousStep;
+  }
+
   groupBy<K>(func: (t: T) => K): ReactiveMap<K, T> {
     const snapshot: ZMap<K, T> = this.previousSnapshot.groupBy(func);
     const changes: ReactiveValue<ZMap<K, T>> = this._changes.map((x) =>
@@ -51,5 +55,40 @@ export class ReactiveSet<T> {
       .join(other.groupBy(otherKeySelector))
       .mapValues((row) => resultSelector(row.get(0), row.get(1)))
       .flatten();
+  }
+
+  union(other: ReactiveSet<T>): ReactiveSet<T> {
+    return new ReactiveSet(
+      this._changes.zip(other._changes, (x, y) => x.union(y)),
+      this.previousSnapshot.union(other.previousSnapshot),
+    );
+  }
+
+  intersection(other: ReactiveSet<T>): ReactiveSet<T> {
+    return new ReactiveSet(
+      this.changes.zip3(
+        this.previousMaterialized,
+        other.changes,
+        other.previousMaterialized,
+        (tC, tM, oC, oM) => {
+          return tC.intersection(oM).union(tM.intersection(oC)).union(tC.intersection(oC));
+        },
+      ),
+      this.previousSnapshot.intersection(other.previousSnapshot),
+    );
+  }
+
+  difference(other: ReactiveSet<T>): ReactiveSet<T> {
+    return new ReactiveSet(
+      this._changes.zip(other._changes, (x, y) => x.difference(y)),
+      this.previousSnapshot.difference(other.previousSnapshot),
+    );
+  }
+
+  filter(pred: (t: T) => boolean): ReactiveSet<T> {
+    return new ReactiveSet(
+      this._changes.map((x) => x.filter(pred)),
+      this.previousSnapshot.filter(pred),
+    );
   }
 }

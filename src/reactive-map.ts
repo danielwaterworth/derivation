@@ -76,4 +76,32 @@ export class ReactiveMap<K, V> {
       this.previousSnapshot.get(key),
     );
   }
+
+  intersection(other: ReactiveMap<K, V>): ReactiveMap<K, V> {
+    return new ReactiveMap(
+      this.changes.zip3(
+        this.previousMaterialized,
+        other.changes,
+        other.previousMaterialized,
+        (tC, tM, oC, oM) => {
+          return tC.intersection(oM).union(tM.intersection(oC)).union(tC.intersection(oC));
+        },
+      ),
+      this.previousSnapshot.intersection(other.previousSnapshot),
+    );
+  }
+
+  difference(other: ReactiveMap<K, V>): ReactiveMap<K, V> {
+    return new ReactiveMap(
+      this._changes.zip(other._changes, (x, y) => x.difference(y)),
+      this.previousSnapshot.difference(other.previousSnapshot),
+    );
+  }
+
+  filter(pred: (k: K, v: V) => boolean): ReactiveMap<K, V> {
+    return new ReactiveMap<K, V>(
+      this._changes.map((x) => x.filter(pred)),
+      this.previousSnapshot.filter(pred),
+    );
+  }
 }

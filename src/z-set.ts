@@ -66,6 +66,55 @@ export class ZSet<T> {
     return next === this.entries ? this : new ZSet(next);
   }
 
+  intersection(other: ZSet<T>): ZSet<T> {
+    if (this.entries.size === 0 || other.entries.size === 0) return new ZSet<T>();
+
+    const next = this.entries.withMutations((m) => {
+      m.clear();
+      for (const [item, weight1] of this.entries) {
+        const weight2 = other.entries.get(item);
+        if (weight2 !== undefined) {
+          const product = weight1 * weight2;
+          if (product !== 0) m.set(item, product);
+        }
+      }
+    });
+
+    return new ZSet(next);
+  }
+
+  difference(other: ZSet<T>): ZSet<T> {
+    if (other.entries.size === 0) return this;
+
+    const next = this.entries.withMutations((m) => {
+      for (const [item, weight] of other.entries) {
+        const current = m.get(item);
+        if (current !== undefined) {
+          const diff = current - weight;
+          if (diff === 0) m.remove(item);
+          else m.set(item, diff);
+        } else if (weight !== 0) {
+          m.set(item, -weight);
+        }
+      }
+    });
+
+    return next === this.entries ? this : new ZSet(next);
+  }
+
+  filter(pred: (t: T) => boolean): ZSet<T> {
+    const next = this.entries.withMutations((m) => {
+      m.clear();
+      for (const [item, weight] of this.entries) {
+        if (pred(item)) {
+          m.set(item, weight);
+        }
+      }
+    });
+
+    return next.size === this.entries.size ? this : new ZSet(next);
+  }
+
   product<A>(other: ZSet<A>): ZSet<Tuple<[T, A]>> {
     let result = IMap<Tuple<[T, A]>, number>();
 
@@ -95,7 +144,7 @@ export class ZSet<T> {
     return result;
   }
 
-  select<A>(func: (t: T) => A): ZSet<A> {
+  map<A>(func: (t: T) => A): ZSet<A> {
     let result = new ZSet<A>();
 
     for (const [item, weight] of this.entries) {
@@ -109,7 +158,7 @@ export class ZSet<T> {
     return `ZSet(${this.entries.size})`;
   }
 
-  toArray(): object {
-    return this.entries.toArray();
+  toArray(): ZSetEntry<T>[] {
+    return [...this.getEntries()];
   }
 }
