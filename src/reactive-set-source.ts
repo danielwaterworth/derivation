@@ -1,7 +1,7 @@
-import { Coordinator } from "./streaming";
-import { ZSetChangeInput } from "./z-set-change-input";
-import { ReactiveSet } from "./reactive-set";
-import { ZSet } from "./z-set";
+import { Coordinator } from "./streaming.js";
+import { ZSetChangeInput } from "./z-set-change-input.js";
+import { ReactiveSet } from "./reactive-set.js";
+import { ZSet } from "./z-set.js";
 
 export class ReactiveSetSource<K> extends ReactiveSet<K> {
   private readonly input: ZSetChangeInput<K>;

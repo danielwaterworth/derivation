@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { WeakList } from "../weak-list";
+import { WeakList } from "../weak-list.js";
 
 class FakeWeakRef<T extends object> {
   private _value: T | undefined;

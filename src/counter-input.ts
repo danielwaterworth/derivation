@@ -1,4 +1,4 @@
-import { ReactiveValue, Coordinator } from "./streaming";
+import { ReactiveValue, Coordinator } from "./streaming.js";
 
 export class CounterInput extends ReactiveValue<number> {
   private current = 0;

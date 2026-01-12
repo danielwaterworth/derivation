@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { ZMap } from "../z-map";
-import { ZSet } from "../z-set";
+import { ZMap } from "../z-map.js";
+import { ZSet } from "../z-set.js";
 import { Map as IMap } from "immutable";
 
 function sortPairs<T>(

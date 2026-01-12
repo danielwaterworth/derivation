@@ -1,7 +1,7 @@
 import { ReactiveValue } from "./streaming.js";
-import { ZSet } from "./z-set";
-import { ZMap } from "./z-map";
-import { ReactiveMap } from "./reactive-map";
+import { ZSet } from "./z-set.js";
+import { ZMap } from "./z-map.js";
+import { ReactiveMap } from "./reactive-map.js";
 
 export class ReactiveSet<T> {
   private readonly previousStep: ReactiveValue<ZSet<T>>;

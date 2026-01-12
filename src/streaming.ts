@@ -1,4 +1,4 @@
-import { WeakList } from "./weak-list";
+import { WeakList } from "./weak-list.js";
 
 export abstract class ReactiveValue<T> {
   abstract step(): void;

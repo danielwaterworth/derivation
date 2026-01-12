@@ -1,6 +1,6 @@
-import { ZSet } from "./z-set";
+import { ZSet } from "./z-set.js";
 import { Map as IMap } from "immutable";
-import { Tuple } from "./tuple";
+import { Tuple } from "./tuple.js";
 
 export type ZMapEntry<K, V> = readonly [k1: K, k2: V, weight: number];
 

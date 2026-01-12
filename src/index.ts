@@ -1,22 +1,22 @@
-import { Coordinator, ReactiveValue } from "./streaming";
-import { Constant } from "./constant";
-import { External } from "./external";
-import { Input } from "./input";
-import { CounterInput } from "./counter-input";
-import { ReactiveMapSource } from "./reactive-map-source";
-import { ReactiveSetSource } from "./reactive-set-source";
-import { ZMap } from "./z-map";
-import { ZSet } from "./z-set";
+import { Coordinator, ReactiveValue } from "./streaming.js";
+import { Constant } from "./constant.js";
+import { External } from "./external.js";
+import { Input } from "./input.js";
+import { CounterInput } from "./counter-input.js";
+import { ReactiveMapSource } from "./reactive-map-source.js";
+import { ReactiveSetSource } from "./reactive-set-source.js";
+import { ZMap } from "./z-map.js";
+import { ZSet } from "./z-set.js";
 
-export { ReactiveValue } from "./streaming";
-export { ZMap } from "./z-map";
-export { ZSet } from "./z-set";
-export { ReactiveMap } from "./reactive-map";
-export { ReactiveSet } from "./reactive-set";
-export { ReactiveMapSource } from "./reactive-map-source";
-export { ReactiveSetSource } from "./reactive-set-source";
-export { Input } from "./input";
-export { Tuple } from "./tuple";
+export { ReactiveValue } from "./streaming.js";
+export { ZMap } from "./z-map.js";
+export { ZSet } from "./z-set.js";
+export { ReactiveMap } from "./reactive-map.js";
+export { ReactiveSet } from "./reactive-set.js";
+export { ReactiveMapSource } from "./reactive-map-source.js";
+export { ReactiveSetSource } from "./reactive-set-source.js";
+export { Input } from "./input.js";
+export { Tuple } from "./tuple.js";
 
 export class Graph {
   private readonly coordinator: Coordinator;

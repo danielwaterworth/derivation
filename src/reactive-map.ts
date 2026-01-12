@@ -1,7 +1,7 @@
-import { ReactiveValue } from "./streaming";
-import { ZMap } from "./z-map";
-import { ReactiveSet } from "./reactive-set";
-import { Tuple } from "./tuple";
+import { ReactiveValue } from "./streaming.js";
+import { ZMap } from "./z-map.js";
+import { ReactiveSet } from "./reactive-set.js";
+import { Tuple } from "./tuple.js";
 
 export class ReactiveMap<K, V> {
   private readonly _materialized: ReactiveValue<ZMap<K, V>>;

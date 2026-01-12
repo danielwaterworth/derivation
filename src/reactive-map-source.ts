@@ -1,7 +1,7 @@
-import { Coordinator } from "./streaming";
-import { ZMapChangeInput } from "./z-map-change-input";
-import { ReactiveMap } from "./reactive-map";
-import { ZMap } from "./z-map";
+import { Coordinator } from "./streaming.js";
+import { ZMapChangeInput } from "./z-map-change-input.js";
+import { ReactiveMap } from "./reactive-map.js";
+import { ZMap } from "./z-map.js";
 
 export class ReactiveMapSource<K, V> extends ReactiveMap<K, V> {
   private readonly input: ZMapChangeInput<K, V>;

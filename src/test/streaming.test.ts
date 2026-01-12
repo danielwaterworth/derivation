@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { Coordinator, Register, Sampler } from "../streaming";
-import { External } from "../external";
-import { Constant } from "../constant";
-import { CounterInput } from "../counter-input";
-import { ZSetChangeInput } from "../z-set-change-input";
-import { ZMapChangeInput } from "../z-map-change-input";
+import { Coordinator, Register, Sampler } from "../streaming.js";
+import { External } from "../external.js";
+import { Constant } from "../constant.js";
+import { CounterInput } from "../counter-input.js";
+import { ZSetChangeInput } from "../z-set-change-input.js";
+import { ZMapChangeInput } from "../z-map-change-input.js";
 
 describe("streaming core", () => {
   it("constant stays constant across steps", () => {

@@ -1,4 +1,4 @@
-import { ReactiveValue, Coordinator } from "./streaming";
+import { ReactiveValue, Coordinator } from "./streaming.js";
 
 export class Input<T> extends ReactiveValue<T> {
   private current: T;

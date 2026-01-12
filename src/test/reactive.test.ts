@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { Coordinator } from "../streaming";
-import { ZSetChangeInput } from "../z-set-change-input";
-import { ZMapChangeInput } from "../z-map-change-input";
-import { ReactiveSet } from "../reactive-set";
-import { ReactiveMap } from "../reactive-map";
-import { ZMap } from "../z-map";
-import { Tuple } from "../tuple";
+import { Coordinator } from "../streaming.js";
+import { ZSetChangeInput } from "../z-set-change-input.js";
+import { ZMapChangeInput } from "../z-map-change-input.js";
+import { ReactiveSet } from "../reactive-set.js";
+import { ReactiveMap } from "../reactive-map.js";
+import { ZMap } from "../z-map.js";
+import { Tuple } from "../tuple.js";
 
 describe("ReactiveSet", () => {
   it("accumulates and materializes over steps", () => {

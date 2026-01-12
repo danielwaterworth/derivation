@@ -1,5 +1,5 @@
-import { Coordinator, ReactiveValue } from "./streaming";
-import { ZSet } from "./z-set";
+import { Coordinator, ReactiveValue } from "./streaming.js";
+import { ZSet } from "./z-set.js";
 
 export class ZSetChangeInput<T> extends ReactiveValue<ZSet<T>> {
   private current = new ZSet<T>();

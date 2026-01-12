@@ -1,5 +1,5 @@
-import { Coordinator, ReactiveValue } from "./streaming";
-import { ZMap } from "./z-map";
+import { Coordinator, ReactiveValue } from "./streaming.js";
+import { ZMap } from "./z-map.js";
 
 export class ZMapChangeInput<K, V> extends ReactiveValue<ZMap<K, V>> {
   private current = new ZMap<K, V>();
