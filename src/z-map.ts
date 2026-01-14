@@ -17,6 +17,18 @@ export class ZMap<K, V> {
     }
   }
 
+  isEmpty(): boolean {
+    return this.entries.size === 0;
+  }
+
+  get length(): number {
+    let count = 0;
+    for (const [, zset] of this.entries) {
+      count += zset.length;
+    }
+    return count;
+  }
+
   *getEntries(): IterableIterator<ZMapEntry<K, V>> {
     for (const [k1, zset] of this.entries) {
       for (const [k2, w] of zset.getEntries()) {

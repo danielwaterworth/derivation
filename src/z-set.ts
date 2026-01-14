@@ -21,6 +21,10 @@ export class ZSet<T> {
     return this.entries.size === 0;
   }
 
+  get length(): number {
+    return this.entries.size;
+  }
+
   get(item: T): number {
     return this.entries.get(item) ?? 0;
   }
