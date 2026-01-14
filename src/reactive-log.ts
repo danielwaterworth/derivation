@@ -1,0 +1,56 @@
+import { List } from "immutable";
+import { ReactiveValue } from "./streaming.js";
+
+export class ReactiveLog<T> {
+  private readonly _changes: ReactiveValue<List<T>>;
+  private readonly _materialized: ReactiveValue<List<T>>;
+  private readonly _previousStep: ReactiveValue<List<T>>;
+  private readonly _length: ReactiveValue<number>;
+
+  constructor(changes: ReactiveValue<List<T>>, snapshot?: List<T>) {
+    snapshot = snapshot ?? List();
+    this._changes = changes;
+    this._materialized = changes.accumulate(snapshot, (acc, x) => acc.concat(x));
+    this._previousStep = this._materialized.delay(snapshot);
+    this._length = changes.accumulate(snapshot.size, (acc, x) => acc + x.size);
+  }
+
+  get snapshot(): List<T> {
+    return this._materialized.value;
+  }
+
+  get previousSnapshot(): List<T> {
+    return this._previousStep.value;
+  }
+
+  get changes(): ReactiveValue<List<T>> {
+    return this._changes;
+  }
+
+  get materialized(): ReactiveValue<List<T>> {
+    return this._materialized;
+  }
+
+  get previousMaterialized(): ReactiveValue<List<T>> {
+    return this._previousStep;
+  }
+
+  get length(): ReactiveValue<number> {
+    return this._length;
+  }
+
+  fold<S>(initial: S, reducer: (acc: S, item: T) => S): ReactiveValue<S> {
+    let snapshotState = initial;
+    for (const item of this._previousStep.value) {
+      snapshotState = reducer(snapshotState, item);
+    }
+
+    return this._changes.accumulate(snapshotState, (acc, items) => {
+      let result = acc;
+      for (const item of items) {
+        result = reducer(result, item);
+      }
+      return result;
+    });
+  }
+}
