@@ -1,5 +1,7 @@
 import { List } from "immutable";
 import { ReactiveValue } from "./streaming.js";
+import { ZSet } from "./z-set.js";
+import { ReactiveSet } from "./reactive-set.js";
 
 export class ReactiveLog<T> {
   private readonly _changes: ReactiveValue<List<T>>;
@@ -52,5 +54,34 @@ export class ReactiveLog<T> {
       }
       return result;
     });
+  }
+
+  map<U>(f: (t: T) => U): ReactiveLog<U> {
+    const mappedChanges = this._changes.map((items) => items.map(f));
+    const mappedSnapshot = this._previousStep.value.map(f);
+    return new ReactiveLog<U>(mappedChanges, mappedSnapshot);
+  }
+
+  filter(pred: (t: T) => boolean): ReactiveLog<T> {
+    const filteredChanges = this._changes.map((items) => items.filter(pred));
+    const filteredSnapshot = this._previousStep.value.filter(pred);
+    return new ReactiveLog<T>(filteredChanges, filteredSnapshot);
+  }
+
+  toSet<S>(this: ReactiveLog<ZSet<S>>): ReactiveSet<S> {
+    const changes = this.changes.map((items) => {
+      let result = new ZSet<S>();
+      for (const item of items) {
+        result = result.union(item);
+      }
+      return result;
+    });
+
+    let snapshot = new ZSet<S>();
+    for (const item of this.previousSnapshot) {
+      snapshot = snapshot.union(item);
+    }
+
+    return new ReactiveSet<S>(changes, snapshot);
   }
 }

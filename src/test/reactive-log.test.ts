@@ -4,6 +4,7 @@ import { Coordinator } from "../streaming.js";
 import { LogChangeInput } from "../log-change-input.js";
 import { ReactiveLog } from "../reactive-log.js";
 import { Graph } from "../index.js";
+import { ZSet } from "../z-set.js";
 
 describe("ReactiveLog", () => {
   it("accumulates items over steps", () => {
@@ -170,5 +171,147 @@ describe("ReactiveLog", () => {
     c.step();
 
     expect(log.length.value).toBe(4);
+  });
+
+  it("map transforms log items", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<number>(c);
+    const log = new ReactiveLog(input);
+
+    const doubled = log.map((x) => x * 2);
+
+    input.push(1);
+    input.push(2);
+    c.step();
+
+    expect(doubled.snapshot.toArray()).toEqual([2, 4]);
+
+    input.push(3);
+    c.step();
+
+    expect(doubled.snapshot.toArray()).toEqual([2, 4, 6]);
+  });
+
+  it("map with initial snapshot", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<number>(c);
+    const initial = List([10, 20]);
+    const log = new ReactiveLog(input, initial);
+
+    const doubled = log.map((x) => x * 2);
+
+    expect(doubled.snapshot.toArray()).toEqual([20, 40]);
+
+    input.push(5);
+    c.step();
+
+    expect(doubled.snapshot.toArray()).toEqual([20, 40, 10]);
+  });
+
+  it("filter selects log items", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<number>(c);
+    const log = new ReactiveLog(input);
+
+    const evens = log.filter((x) => x % 2 === 0);
+
+    input.push(1);
+    input.push(2);
+    input.push(3);
+    input.push(4);
+    c.step();
+
+    expect(evens.snapshot.toArray()).toEqual([2, 4]);
+
+    input.push(5);
+    input.push(6);
+    c.step();
+
+    expect(evens.snapshot.toArray()).toEqual([2, 4, 6]);
+  });
+
+  it("filter with initial snapshot", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<number>(c);
+    const initial = List([1, 2, 3, 4]);
+    const log = new ReactiveLog(input, initial);
+
+    const evens = log.filter((x) => x % 2 === 0);
+
+    expect(evens.snapshot.toArray()).toEqual([2, 4]);
+
+    input.push(6);
+    c.step();
+
+    expect(evens.snapshot.toArray()).toEqual([2, 4, 6]);
+  });
+
+  it("toSet converts log of ZSets to ReactiveSet", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<ZSet<string>>(c);
+    const log = new ReactiveLog(input);
+
+    const set = log.toSet();
+
+    expect([...set.snapshot.getEntries()]).toEqual([]);
+
+    // Add items
+    input.push(new ZSet<string>().add("a").add("b"));
+    c.step();
+
+    expect(set.snapshot.get("a")).toBe(1);
+    expect(set.snapshot.get("b")).toBe(1);
+    expect(set.snapshot.length).toBe(2);
+
+    // Add more and remove one
+    input.push(new ZSet<string>().add("c").add("a", -1));
+    c.step();
+
+    expect(set.snapshot.get("a")).toBe(0);
+    expect(set.snapshot.get("b")).toBe(1);
+    expect(set.snapshot.get("c")).toBe(1);
+    expect(set.snapshot.length).toBe(2);
+  });
+
+  it("toSet with initial snapshot", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<ZSet<string>>(c);
+    const initial = List([new ZSet<string>().add("x").add("y")]);
+    const log = new ReactiveLog(input, initial);
+
+    const set = log.toSet();
+
+    expect(set.snapshot.get("x")).toBe(1);
+    expect(set.snapshot.get("y")).toBe(1);
+    expect(set.snapshot.length).toBe(2);
+
+    input.push(new ZSet<string>().add("z"));
+    c.step();
+
+    expect(set.snapshot.get("x")).toBe(1);
+    expect(set.snapshot.get("y")).toBe(1);
+    expect(set.snapshot.get("z")).toBe(1);
+    expect(set.snapshot.length).toBe(3);
+  });
+
+  it("toSet tracks changes correctly", () => {
+    const c = new Coordinator();
+    const input = new LogChangeInput<ZSet<string>>(c);
+    const log = new ReactiveLog(input);
+
+    const set = log.toSet();
+
+    input.push(new ZSet<string>().add("a"));
+    c.step();
+
+    expect(set.changes.value.get("a")).toBe(1);
+    expect(set.changes.value.length).toBe(1);
+
+    input.push(new ZSet<string>().add("b").add("a", -1));
+    c.step();
+
+    expect(set.changes.value.get("b")).toBe(1);
+    expect(set.changes.value.get("a")).toBe(-1);
+    expect(set.changes.value.length).toBe(2);
   });
 });
