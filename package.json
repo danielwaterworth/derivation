@@ -1,6 +1,6 @@
 {
   "name": "derivation",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A simple IVM (Incremental View Maintenence) library inspired by DBSP (Database Stream Processor).",
   "homepage": "https://github.com/derivationjs/derivation",
   "repository": {
