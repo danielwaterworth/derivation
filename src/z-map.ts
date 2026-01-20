@@ -1,19 +1,21 @@
 import { ZSet } from "./z-set.js";
-import { Map as IMap } from "immutable";
+import { HashMap } from "@rimbu/core";
 import { Tuple } from "./tuple.js";
+import { emptyHashMap, hashMapFrom, hashMapBuilder } from "./rimbu-utils.js";
 
 export type ZMapEntry<K, V> = readonly [k1: K, k2: V, weight: number];
 
 export class ZMap<K, V> {
-  private readonly entries: IMap<K, ZSet<V>>;
+  private readonly entries: HashMap<K, ZSet<V>>;
 
-  constructor(entries?: IMap<K, ZSet<V>> | Iterable<readonly [K, ZSet<V>]>) {
+  constructor(entries?: HashMap<K, ZSet<V>> | Iterable<readonly [K, ZSet<V>]>) {
     if (entries === undefined) {
-      this.entries = IMap<K, ZSet<V>>();
-    } else if (IMap.isMap(entries)) {
-      this.entries = entries as IMap<K, ZSet<V>>;
+      this.entries = emptyHashMap<K, ZSet<V>>();
+    } else if (typeof (entries as any).toBuilder === 'function') {
+      // It's a rimbu HashMap
+      this.entries = entries as HashMap<K, ZSet<V>>;
     } else {
-      this.entries = IMap<K, ZSet<V>>(entries as Iterable<[K, ZSet<V>]>);
+      this.entries = hashMapFrom<K, ZSet<V>>(entries);
     }
   }
 
@@ -52,7 +54,7 @@ export class ZMap<K, V> {
     const merged = existing ? zset.union(existing) : zset;
 
     if (merged.isEmpty()) {
-      const next = this.entries.remove(k1);
+      const next = this.entries.removeKey(k1);
       return next === this.entries ? this : new ZMap(next);
     } else {
       const next = this.entries.set(k1, merged);
@@ -63,13 +65,14 @@ export class ZMap<K, V> {
   add(k1: K, k2: V, weight = 1): ZMap<K, V> {
     if (weight === 0) return this;
 
-    const next = this.entries.withMutations((m) => {
-      const current = m.get(k1) ?? new ZSet<V>();
-      const updated = current.add(k2, weight);
+    const builder = this.entries.toBuilder();
+    const current = builder.get(k1) ?? new ZSet<V>();
+    const updated = current.add(k2, weight);
 
-      if (updated.isEmpty()) m.remove(k1);
-      else m.set(k1, updated);
-    });
+    if (updated.isEmpty()) builder.removeKey(k1);
+    else builder.set(k1, updated);
+
+    const next = builder.build();
 
     return next === this.entries ? this : new ZMap(next);
   }
@@ -81,23 +84,23 @@ export class ZMap<K, V> {
   union(other: ZMap<K, V>): ZMap<K, V> {
     if (other.entries.size === 0) return this;
 
-    const next = this.entries.withMutations((m) => {
-      for (const [k1, k2, w] of other.getEntries()) {
-        if (w === 0) continue;
+    const builder = this.entries.toBuilder();
+    for (const [k1, k2, w] of other.getEntries()) {
+      if (w === 0) continue;
 
-        const row = m.get(k1) ?? new ZSet<V>();
-        const updated = row.add(k2, w);
+      const row = builder.get(k1) ?? new ZSet<V>();
+      const updated = row.add(k2, w);
 
-        if (updated.isEmpty()) m.remove(k1);
-        else m.set(k1, updated);
-      }
-    });
+      if (updated.isEmpty()) builder.removeKey(k1);
+      else builder.set(k1, updated);
+    }
+    const next = builder.build();
 
     return next === this.entries ? this : new ZMap(next);
   }
 
   intersection(other: ZMap<K, V>): ZMap<K, V> {
-    let result = IMap<K, ZSet<V>>();
+    let result = emptyHashMap<K, ZSet<V>>();
 
     for (const [k, left] of this.entries) {
       const right = other.entries.get(k);
@@ -115,37 +118,36 @@ export class ZMap<K, V> {
   difference(other: ZMap<K, V>): ZMap<K, V> {
     if (other.entries.size === 0) return this;
 
-    const next = this.entries.withMutations((m) => {
-      for (const [k1, k2, w] of other.getEntries()) {
-        if (w === 0) continue;
+    const builder = this.entries.toBuilder();
+    for (const [k1, k2, w] of other.getEntries()) {
+      if (w === 0) continue;
 
-        const row = m.get(k1) ?? new ZSet<V>();
-        const updated = row.add(k2, -w);
+      const row = builder.get(k1) ?? new ZSet<V>();
+      const updated = row.add(k2, -w);
 
-        if (updated.isEmpty()) m.remove(k1);
-        else m.set(k1, updated);
-      }
-    });
+      if (updated.isEmpty()) builder.removeKey(k1);
+      else builder.set(k1, updated);
+    }
+    const next = builder.build();
 
     return next === this.entries ? this : new ZMap(next);
   }
 
   filter(pred: (k: K, v: V) => boolean): ZMap<K, V> {
-    const next = this.entries.withMutations((m) => {
-      m.clear();
-      for (const [k, zset] of this.entries) {
-        const filtered = zset.filter((v) => pred(k, v));
-        if (!filtered.isEmpty()) {
-          m.set(k, filtered);
-        }
+    const builder = hashMapBuilder<K, ZSet<V>>();
+    for (const [k, zset] of this.entries) {
+      const filtered = zset.filter((v) => pred(k, v));
+      if (!filtered.isEmpty()) {
+        builder.set(k, filtered);
       }
-    });
+    }
+    const next = builder.build();
 
     return new ZMap(next);
   }
 
   join<V1>(other: ZMap<K, V1>): ZMap<K, Tuple<[V, V1]>> {
-    let result = IMap<K, ZSet<Tuple<[V, V1]>>>();
+    let result = emptyHashMap<K, ZSet<Tuple<[V, V1]>>>();
 
     for (const [k, left] of this.entries) {
       const right = other.entries.get(k);
@@ -159,10 +161,11 @@ export class ZMap<K, V> {
   }
 
   mapValues<V1>(func: (v: V) => V1): ZMap<K, V1> {
-    const next = this.entries.map((z) => z.map(func)) as unknown as IMap<
-      K,
-      ZSet<V1>
-    >;
+    const builder = hashMapBuilder<K, ZSet<V1>>();
+    for (const [k, zset] of this.entries) {
+      builder.set(k, zset.map(func));
+    }
+    const next = builder.build();
     return new ZMap(next);
   }
 

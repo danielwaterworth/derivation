@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ZMap } from "../z-map.js";
 import { ZSet } from "../z-set.js";
-import { Map as IMap } from "immutable";
 
 function sortPairs<T>(
   xs: ReadonlyArray<readonly [T, number]>,
@@ -261,12 +260,12 @@ describe("ZMap", () => {
 
   it("constructors accept iterables and Immutable Maps", () => {
     const z1 = new ZSet(new Map([[1, 2]]));
-    const z2 = new ZSet(IMap([[2, 3]]));
+    const z2 = new ZSet([[2, 3]]);
     expect(z1.get(1)).toBe(2);
     expect(z2.get(2)).toBe(3);
 
     const zm1 = new ZMap<string, number>(new Map([["a", new ZSet([[1, 5]])]]));
-    const zm2 = new ZMap<string, number>(IMap([["b", new ZSet([[2, 6]])]]));
+    const zm2 = new ZMap<string, number>([["b", new ZSet([[2, 6]])]]);
     expect(zm1.getValue("a", 1)).toBe(5);
     expect(zm2.getValue("b", 2)).toBe(6);
   });

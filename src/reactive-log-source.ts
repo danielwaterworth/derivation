@@ -1,4 +1,4 @@
-import { List } from "immutable";
+import { List } from "@rimbu/core";
 import { Coordinator } from "./streaming.js";
 import { LogChangeInput } from "./log-change-input.js";
 import { ReactiveLog } from "./reactive-log.js";

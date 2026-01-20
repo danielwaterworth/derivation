@@ -123,7 +123,11 @@ describe("ReactiveSet", () => {
     c.step();
 
     let entries = [...joined.snapshot.getEntries()];
-    expect(entries).toContainEqual(["x", Tuple(10, "A"), 1]);
+    expect(entries.length).toBe(1);
+    expect(entries[0]![0]).toBe("x");
+    expect(entries[0]![1].get(0)).toBe(10);
+    expect(entries[0]![1].get(1)).toBe("A");
+    expect(entries[0]![2]).toBe(1);
     expect(entries.some(([k]) => k === "y")).toBe(false);
 
     left.add("y", 20);
@@ -131,8 +135,17 @@ describe("ReactiveSet", () => {
     c.step();
 
     entries = [...joined.snapshot.getEntries()];
-    expect(entries).toContainEqual(["x", Tuple(10, "A"), 1]);
-    expect(entries).toContainEqual(["y", Tuple(20, "B"), 1]);
+    expect(entries.length).toBe(2);
+    const xEntry = entries.find(([k]) => k === "x");
+    const yEntry = entries.find(([k]) => k === "y");
+    expect(xEntry).toBeDefined();
+    expect(yEntry).toBeDefined();
+    expect(xEntry![1].get(0)).toBe(10);
+    expect(xEntry![1].get(1)).toBe("A");
+    expect(xEntry![2]).toBe(1);
+    expect(yEntry![1].get(0)).toBe(20);
+    expect(yEntry![1].get(1)).toBe("B");
+    expect(yEntry![2]).toBe(1);
   });
 
   it("ReactiveMap initializes correctly with snapshot", () => {

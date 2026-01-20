@@ -1,19 +1,21 @@
 import { ZMap } from "./z-map.js";
-import { Map as IMap } from "immutable";
+import { HashMap } from "@rimbu/core";
 import { Tuple } from "./tuple.js";
+import { emptyHashMap, hashMapFrom, hashMapBuilder } from "./rimbu-utils.js";
 
 export type ZSetEntry<T> = readonly [item: T, weight: number];
 
 export class ZSet<T> {
-  private readonly entries: IMap<T, number>;
+  private readonly entries: HashMap<T, number>;
 
-  constructor(entries?: IMap<T, number> | Iterable<readonly [T, number]>) {
+  constructor(entries?: HashMap<T, number> | Iterable<readonly [T, number]>) {
     if (entries === undefined) {
-      this.entries = IMap<T, number>();
-    } else if (IMap.isMap(entries)) {
-      this.entries = entries as IMap<T, number>;
+      this.entries = emptyHashMap<T, number>();
+    } else if (typeof (entries as any).toBuilder === "function") {
+      // It's a rimbu HashMap
+      this.entries = entries as HashMap<T, number>;
     } else {
-      this.entries = IMap<T, number>(entries as Iterable<[T, number]>);
+      this.entries = hashMapFrom<T, number>(entries);
     }
   }
 
@@ -38,14 +40,15 @@ export class ZSet<T> {
   add(item: T, weight = 1): ZSet<T> {
     if (weight === 0) return this;
 
-    const next = this.entries.update(item, 0, (cur) => {
-      const updated = cur + weight;
-      return updated;
-    });
+    const cur = this.entries.get(item) ?? 0;
+    const updated = cur + weight;
 
-    const cleaned = next.get(item) === 0 ? next.remove(item) : next;
+    const next =
+      updated === 0
+        ? this.entries.removeKey(item)
+        : this.entries.set(item, updated);
 
-    return cleaned === this.entries ? this : new ZSet(cleaned);
+    return next === this.entries ? this : new ZSet(next);
   }
 
   remove(item: T, weight = 1): ZSet<T> {
@@ -55,34 +58,34 @@ export class ZSet<T> {
   union(other: ZSet<T>): ZSet<T> {
     if (other.entries.size === 0) return this;
 
-    const next = this.entries.withMutations((m) => {
-      for (const [item, w] of other.entries) {
-        if (w === 0) continue;
+    const builder = this.entries.toBuilder();
+    for (const [item, w] of other.entries) {
+      if (w === 0) continue;
 
-        const cur = m.get(item) ?? 0;
-        const updated = cur + w;
+      const cur = builder.get(item) ?? 0;
+      const updated = cur + w;
 
-        if (updated === 0) m.remove(item);
-        else m.set(item, updated);
-      }
-    });
+      if (updated === 0) builder.removeKey(item);
+      else builder.set(item, updated);
+    }
+    const next = builder.build();
 
     return next === this.entries ? this : new ZSet(next);
   }
 
   intersection(other: ZSet<T>): ZSet<T> {
-    if (this.entries.size === 0 || other.entries.size === 0) return new ZSet<T>();
+    if (this.entries.size === 0 || other.entries.size === 0)
+      return new ZSet<T>();
 
-    const next = this.entries.withMutations((m) => {
-      m.clear();
-      for (const [item, weight1] of this.entries) {
-        const weight2 = other.entries.get(item);
-        if (weight2 !== undefined) {
-          const product = weight1 * weight2;
-          if (product !== 0) m.set(item, product);
-        }
+    const builder = hashMapBuilder<T, number>();
+    for (const [item, weight1] of this.entries) {
+      const weight2 = other.entries.get(item);
+      if (weight2 !== undefined) {
+        const product = weight1 * weight2;
+        if (product !== 0) builder.set(item, product);
       }
-    });
+    }
+    const next = builder.build();
 
     return new ZSet(next);
   }
@@ -90,37 +93,36 @@ export class ZSet<T> {
   difference(other: ZSet<T>): ZSet<T> {
     if (other.entries.size === 0) return this;
 
-    const next = this.entries.withMutations((m) => {
-      for (const [item, weight] of other.entries) {
-        const current = m.get(item);
-        if (current !== undefined) {
-          const diff = current - weight;
-          if (diff === 0) m.remove(item);
-          else m.set(item, diff);
-        } else if (weight !== 0) {
-          m.set(item, -weight);
-        }
+    const builder = this.entries.toBuilder();
+    for (const [item, weight] of other.entries) {
+      const current = builder.get(item);
+      if (current !== undefined) {
+        const diff = current - weight;
+        if (diff === 0) builder.removeKey(item);
+        else builder.set(item, diff);
+      } else if (weight !== 0) {
+        builder.set(item, -weight);
       }
-    });
+    }
+    const next = builder.build();
 
     return next === this.entries ? this : new ZSet(next);
   }
 
   filter(pred: (t: T) => boolean): ZSet<T> {
-    const next = this.entries.withMutations((m) => {
-      m.clear();
-      for (const [item, weight] of this.entries) {
-        if (pred(item)) {
-          m.set(item, weight);
-        }
+    const builder = hashMapBuilder<T, number>();
+    for (const [item, weight] of this.entries) {
+      if (pred(item)) {
+        builder.set(item, weight);
       }
-    });
+    }
+    const next = builder.build();
 
     return next.size === this.entries.size ? this : new ZSet(next);
   }
 
   product<A>(other: ZSet<A>): ZSet<Tuple<[T, A]>> {
-    let result = IMap<Tuple<[T, A]>, number>();
+    const builder = hashMapBuilder<Tuple<[T, A]>, number>();
 
     for (const [xItem, xWeight] of this.entries) {
       for (const [yItem, yWeight] of other.entries) {
@@ -128,13 +130,15 @@ export class ZSet<T> {
         if (w === 0) continue;
 
         const key = Tuple(xItem, yItem);
-        const prev = result.get(key) ?? 0;
-        const upd = prev + w;
+        const prev = builder.get(key);
+        const upd = (prev ?? 0) + w;
 
-        result = upd === 0 ? result.remove(key) : result.set(key, upd);
+        if (upd === 0) builder.removeKey(key);
+        else builder.set(key, upd);
       }
     }
 
+    const result = builder.build();
     return new ZSet(result);
   }
 

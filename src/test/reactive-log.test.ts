@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { List } from "immutable";
+import { List } from "@rimbu/core";
 import { Coordinator } from "../streaming.js";
 import { LogChangeInput } from "../log-change-input.js";
 import { ReactiveLog } from "../reactive-log.js";
@@ -12,7 +12,7 @@ describe("ReactiveLog", () => {
     const input = new LogChangeInput<string>(c);
     const log = new ReactiveLog(input);
 
-    expect(log.snapshot.size).toBe(0);
+    expect(log.snapshot.length).toBe(0);
 
     input.push("a");
     input.push("b");
@@ -64,8 +64,8 @@ describe("ReactiveLog", () => {
   it("initializes with snapshot", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<string>(c);
-    const initial = List(["x", "y"]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from(["x", "y"]);
+    const log = new ReactiveLog<string>(input, initial);
 
     expect(log.snapshot.toArray()).toEqual(["x", "y"]);
 
@@ -99,8 +99,8 @@ describe("ReactiveLog", () => {
   it("fold with initial snapshot", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<number>(c);
-    const initial = List([10, 20]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from([10, 20]);
+    const log = new ReactiveLog<number>(input, initial);
 
     const sum = log.fold(0, (acc, item) => acc + item);
 
@@ -134,7 +134,7 @@ describe("ReactiveLog", () => {
     const input = new LogChangeInput<string>(c);
     const log = new ReactiveLog(input);
 
-    input.pushAll(List(["a", "b", "c"]));
+    input.pushAll(List.from(["a", "b", "c"]));
     c.step();
 
     expect(log.snapshot.toArray()).toEqual(["a", "b", "c"]);
@@ -162,8 +162,8 @@ describe("ReactiveLog", () => {
   it("length initializes with snapshot size", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<string>(c);
-    const initial = List(["x", "y", "z"]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from(["x", "y", "z"]);
+    const log = new ReactiveLog<string>(input, initial);
 
     expect(log.length.value).toBe(3);
 
@@ -195,8 +195,8 @@ describe("ReactiveLog", () => {
   it("map with initial snapshot", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<number>(c);
-    const initial = List([10, 20]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from([10, 20]);
+    const log = new ReactiveLog<number>(input, initial);
 
     const doubled = log.map((x) => x * 2);
 
@@ -233,8 +233,8 @@ describe("ReactiveLog", () => {
   it("filter with initial snapshot", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<number>(c);
-    const initial = List([1, 2, 3, 4]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from([1, 2, 3, 4]);
+    const log = new ReactiveLog<number>(input, initial);
 
     const evens = log.filter((x) => x % 2 === 0);
 
@@ -276,8 +276,8 @@ describe("ReactiveLog", () => {
   it("toSet with initial snapshot", () => {
     const c = new Coordinator();
     const input = new LogChangeInput<ZSet<string>>(c);
-    const initial = List([new ZSet<string>().add("x").add("y")]);
-    const log = new ReactiveLog(input, initial);
+    const initial = List.from([new ZSet<string>().add("x").add("y")]);
+    const log = new ReactiveLog<ZSet<string>>(input, initial);
 
     const set = log.toSet();
 

@@ -34,6 +34,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
+    "@rimbu/core": "^3.0.0",
     "immutable": "^5.1.4"
   }
 }

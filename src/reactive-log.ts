@@ -1,4 +1,4 @@
-import { List } from "immutable";
+import { List } from "@rimbu/core";
 import { ReactiveValue } from "./streaming.js";
 import { ZSet } from "./z-set.js";
 import { ReactiveSet } from "./reactive-set.js";
@@ -10,11 +10,11 @@ export class ReactiveLog<T> {
   private readonly _length: ReactiveValue<number>;
 
   constructor(changes: ReactiveValue<List<T>>, snapshot?: List<T>) {
-    snapshot = snapshot ?? List();
+    snapshot = snapshot ?? List.empty();
     this._changes = changes;
     this._materialized = changes.accumulate(snapshot, (acc, x) => acc.concat(x));
     this._previousStep = this._materialized.delay(snapshot);
-    this._length = changes.accumulate(snapshot.size, (acc, x) => acc + x.size);
+    this._length = changes.accumulate(snapshot.length, (acc, x) => acc + x.length);
   }
 
   get snapshot(): List<T> {

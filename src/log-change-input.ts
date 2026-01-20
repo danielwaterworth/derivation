@@ -1,9 +1,9 @@
-import { List } from "immutable";
+import { List } from "@rimbu/core";
 import { Coordinator, ReactiveValue } from "./streaming.js";
 
 export class LogChangeInput<T> extends ReactiveValue<List<T>> {
-  private current: List<T> = List();
-  private pending: List<T> = List();
+  private current: List<T> = List.empty();
+  private pending: List<T> = List.empty();
 
   constructor(public readonly coordinator: Coordinator) {
     super();
@@ -11,7 +11,7 @@ export class LogChangeInput<T> extends ReactiveValue<List<T>> {
   }
 
   push(item: T): void {
-    this.pending = this.pending.push(item);
+    this.pending = this.pending.append(item);
   }
 
   pushAll(items: List<T>): void {
@@ -20,7 +20,7 @@ export class LogChangeInput<T> extends ReactiveValue<List<T>> {
 
   step(): void {
     this.current = this.pending;
-    this.pending = List();
+    this.pending = List.empty();
   }
 
   get value(): List<T> {

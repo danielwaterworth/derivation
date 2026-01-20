@@ -1,4 +1,4 @@
-import { List } from "immutable";
+import { List } from "@rimbu/core";
 import { Coordinator, ReactiveValue } from "./streaming.js";
 import { Constant } from "./constant.js";
 import { External } from "./external.js";
@@ -72,7 +72,7 @@ export class Graph {
 
   inputLog<T>(snapshot?: List<T>): ReactiveLogSource<T> {
     return new ReactiveLogSource<T>(
-      snapshot || List<T>(),
+      snapshot || List.empty<T>(),
       this.coordinator,
     );
   }
