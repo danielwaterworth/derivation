@@ -1,7 +1,7 @@
 {
   "name": "derivation",
-  "version": "0.1.6",
-  "description": "A simple IVM (Incremental View Maintenence) library inspired by DBSP (Database Stream Processor).",
+  "version": "0.1.7",
+  "description": "Core graph and streaming infrastructure for incremental computation",
   "homepage": "https://github.com/derivationjs/derivation",
   "repository": {
     "type": "git",
@@ -34,7 +34,5 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "@rimbu/core": "^3.0.0",
-    "immutable": "^5.1.4"
   }
 }

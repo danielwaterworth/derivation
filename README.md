@@ -26,7 +26,7 @@ const graph = new Graph();
 const a = graph.inputValue(0);
 const b = graph.inputValue(1);
 
-const derived = a.zip(b, ([x, y]) => x + y);
+const derived = a.zip(b, (x, y) => x + y);
 
 // We need to hold a reference to the sink so that it doesn't get garbage collected
 const sink = derived.sink((x) => console.log(x)); // outputs 1
@@ -52,13 +52,8 @@ value.dispose();
 
 ## ✨ Types
 
-There are three main kinds of reactive thing:
+This package just contains one kind of reactive thing:
 
  * `ReactiveValue<T>` is the type for things that update all at once. This is
    useful for primitive types like strings and numbers. These are the building
    blocks which more interesting things are built on top of,
- * `ReactiveSet<T>` holds a multiset which changes over time. Under the hood,
-   operations on ReactiveSets are computed based on the deltas between versions,
-   rather than on their materialized values,
- * `ReactiveMap<K, V>` is much like ReactiveSet<T>. You can think of it like a
-   ReactiveSet with an index.

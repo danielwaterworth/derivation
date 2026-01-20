@@ -3,17 +3,17 @@ import { WeakList } from "./weak-list.js";
 export abstract class ReactiveValue<T> {
   abstract step(): void;
   dispose(): void {
-    this.coordinator.removeReactive(this);
+    this.graph.removeValue(this);
   }
   abstract get value(): T;
-  abstract get coordinator(): Coordinator;
+  abstract get graph(): Graph;
 
   map<A>(f: (t: T) => A): ReactiveValue<A> {
-    return new MapStream(this, f, this.coordinator);
+    return new MapStream(this, f, this.graph);
   }
 
   zip<A, B>(other: ReactiveValue<A>, f: (t: T, a: A) => B): ReactiveValue<B> {
-    return new ZipStream(this, other, f, this.coordinator);
+    return new ZipStream(this, other, f, this.graph);
   }
 
   zip2<A, B, C>(
@@ -71,24 +71,24 @@ export abstract class ReactiveValue<T> {
   }
 
   accumulate<A>(initial: A, func: (acc: A, t: T) => A): ReactiveValue<A> {
-    const internal = new Register<A>(initial, this.coordinator);
+    const internal = new Register<A>(initial, this.graph);
     const output = internal.zip(this, func);
     internal.setInput(output);
     return output;
   }
 
   sink(cb: (t: T) => void): ReactiveValue<unknown> {
-    return new SinkStream(this, cb, this.coordinator);
+    return new SinkStream(this, cb, this.graph);
   }
 
   delay(t: T): ReactiveValue<T> {
-    const r = new Register<T>(t, this.coordinator);
+    const r = new Register<T>(t, this.graph);
     r.setInput(this);
     return r;
   }
 }
 
-export class Coordinator {
+export class Graph {
   private readonly streams = new WeakList<ReactiveValue<unknown>>();
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
@@ -104,11 +104,11 @@ export class Coordinator {
     }
   }
 
-  removeReactive(s: ReactiveValue<unknown>): void {
+  removeValue(s: ReactiveValue<unknown>): void {
     this.streamsTable.delete(s);
   }
 
-  addReactive(s: ReactiveValue<unknown>): void {
+  addValue(s: ReactiveValue<unknown>): void {
     this.streams.add(s);
     this.streamsTable.set(s, undefined);
   }
@@ -125,17 +125,17 @@ export class Register<T> extends ReactiveValue<T> {
 
   constructor(
     t: T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this._value = t;
     this.nextValue = t;
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   dispose(): void {
-    this.coordinator.removeReactive(this);
-    if (this.samplerStream) this.coordinator.removeReactive(this.samplerStream);
+    this.graph.removeValue(this);
+    if (this.samplerStream) this.graph.removeValue(this.samplerStream);
   }
 
   step(): void {
@@ -148,7 +148,7 @@ export class Register<T> extends ReactiveValue<T> {
 
   setInput(input: ReactiveValue<T>): void {
     if (this.samplerStream) throw new Error("Register already has input");
-    this.samplerStream = new Sampler(input, this, this.coordinator);
+    this.samplerStream = new Sampler(input, this, this.graph);
   }
 
   get value(): T {
@@ -160,11 +160,11 @@ export class Sampler<T> extends ReactiveValue<void> {
   constructor(
     private readonly input: ReactiveValue<T>,
     private readonly register: Register<T>,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this.step();
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   step(): void {
@@ -172,8 +172,8 @@ export class Sampler<T> extends ReactiveValue<void> {
   }
 
   dispose(): void {
-    this.coordinator.removeReactive(this.register);
-    this.coordinator.removeReactive(this);
+    this.graph.removeValue(this.register);
+    this.graph.removeValue(this);
   }
 
   get value(): void {
@@ -185,10 +185,10 @@ export class SinkStream<T> extends ReactiveValue<void> {
   constructor(
     private readonly input: ReactiveValue<T>,
     private readonly cb: (t: T) => void,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
-    coordinator.addReactive(this);
+    graph.addValue(this);
     this.step();
   }
 
@@ -207,11 +207,11 @@ export class MapStream<A, T> extends ReactiveValue<T> {
   constructor(
     private readonly input: ReactiveValue<A>,
     private readonly func: (a: A) => T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this._value = func(input.value);
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   step(): void {
@@ -230,11 +230,11 @@ export class ZipStream<A, B, T> extends ReactiveValue<T> {
     private readonly inputA: ReactiveValue<A>,
     private readonly inputB: ReactiveValue<B>,
     private readonly func: (a: A, b: B) => T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this._value = func(inputA.value, inputB.value);
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   step(): void {

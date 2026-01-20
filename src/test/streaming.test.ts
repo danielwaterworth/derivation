@@ -1,14 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { Coordinator, Register, Sampler } from "../streaming.js";
+import { Graph, Register, Sampler } from "../streaming.js";
 import { External } from "../external.js";
 import { Constant } from "../constant.js";
 import { CounterInput } from "../counter-input.js";
-import { ZSetChangeInput } from "../z-set-change-input.js";
-import { ZMapChangeInput } from "../z-map-change-input.js";
 
 describe("streaming core", () => {
   it("constant stays constant across steps", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     const s = new Constant(123, c);
 
     expect(s.value).toBe(123);
@@ -19,7 +17,7 @@ describe("streaming core", () => {
   });
 
   it("external re-samples on each step", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 0;
 
     const s = new External(() => ++n, c);
@@ -32,7 +30,7 @@ describe("streaming core", () => {
   });
 
   it("map recomputes from its input", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 10;
 
     const src = new External(() => n, c);
@@ -46,7 +44,7 @@ describe("streaming core", () => {
   });
 
   it("zip combines latest values", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let a = 1;
     let b = 10;
 
@@ -66,7 +64,7 @@ describe("streaming core", () => {
   });
 
   it("delay provides a 1-step lag (register semantics)", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 0;
 
     const src = new External(() => ++n, c);
@@ -85,7 +83,7 @@ describe("streaming core", () => {
   });
 
   it("accumulate folds with a register feedback loop", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let x = 1;
 
     const input = new External(() => x, c);
@@ -105,7 +103,7 @@ describe("streaming core", () => {
   });
 
   it("sink runs a callback initially and each step", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 0;
 
     const src = new External(() => ++n, c);
@@ -122,7 +120,7 @@ describe("streaming core", () => {
   });
 
   it("dispose removes a stream from stepping", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 0;
 
     const src = new External(() => ++n, c);
@@ -137,7 +135,7 @@ describe("streaming core", () => {
   });
 
   it("zip2/zip3/zip4/zip5 combine multiple streams", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     const a = new Constant(1, c);
     const b = new Constant(2, c);
     const d = new Constant(3, c);
@@ -154,7 +152,7 @@ describe("streaming core", () => {
   });
 
   it("Coordinator.remove stops stepping", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let n = 0;
     const s = new External(() => ++n, c);
     expect(s.value).toBe(1);
@@ -164,7 +162,7 @@ describe("streaming core", () => {
   });
 
   it("delay and accumulate behave correctly", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     const src = new External(() => Math.random(), c);
     const delayed = src.delay(0.5);
     const accum = src.accumulate(0, (a, v) => a + v);
@@ -173,7 +171,7 @@ describe("streaming core", () => {
   });
 
   it("sink executes callback initiallly and on each step", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     let seen: number[] = [];
     let n = 0;
     const src = new External(() => ++n, c);
@@ -183,35 +181,22 @@ describe("streaming core", () => {
     expect(seen).toEqual([1, 2, 3]);
   });
 
-  it("ZSetChangeInput, ZMapChangeInput and CounterInput update correctly", () => {
-    const c = new Coordinator();
-
-    const zs = new ZSetChangeInput<number>(c);
-    const zm = new ZMapChangeInput<string, number>(c);
+  it("CounterInput updates correctly", () => {
+    const c = new Graph();
     const counter = new CounterInput(c);
 
-    zs.add(10, 2);
-    zm.add("a", 1, 3);
     counter.add(5);
-
-    expect([...zs.value.getEntries()].length).toBe(0);
-    expect([...zm.value.getEntries()].length).toBe(0);
     expect(counter.value).toBe(0);
 
     c.step();
-
-    expect([...zs.value.getEntries()]).toContainEqual([10, 2]);
-    expect([...zm.value.getEntries()]).toContainEqual(["a", 1, 3]);
     expect(counter.value).toBe(5);
 
     c.step();
-    expect([...zs.value.getEntries()].length).toBe(0);
-    expect([...zm.value.getEntries()].length).toBe(0);
     expect(counter.value).toBe(0);
   });
 
   it("Sampler updates register values correctly", () => {
-    const c = new Coordinator();
+    const c = new Graph();
     const src = new External(() => Math.random(), c);
     const reg = new Register(0, c);
     const sampler = new Sampler(src, reg, c);

@@ -1,15 +1,15 @@
-import { ReactiveValue, Coordinator } from "./streaming.js";
+import { ReactiveValue, Graph } from "./streaming.js";
 
 export class External<T> extends ReactiveValue<T> {
   private _value: T;
 
   constructor(
     private readonly func: () => T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this._value = func();
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   step(): void {

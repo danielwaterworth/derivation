@@ -1,4 +1,4 @@
-import { ReactiveValue, Coordinator } from "./streaming.js";
+import { ReactiveValue, Graph } from "./streaming.js";
 
 export class Input<T> extends ReactiveValue<T> {
   private current: T;
@@ -6,12 +6,12 @@ export class Input<T> extends ReactiveValue<T> {
 
   constructor(
     initial: T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
     this.current = initial;
     this.pending = initial;
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   push(value: T): void {

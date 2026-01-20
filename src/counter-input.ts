@@ -1,12 +1,12 @@
-import { ReactiveValue, Coordinator } from "./streaming.js";
+import { ReactiveValue, Graph } from "./streaming.js";
 
 export class CounterInput extends ReactiveValue<number> {
   private current = 0;
   private pending = 0;
 
-  constructor(public readonly coordinator: Coordinator) {
+  constructor(public readonly graph: Graph) {
     super();
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   add(weight: number): void {

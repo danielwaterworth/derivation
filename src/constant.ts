@@ -1,12 +1,12 @@
-import { ReactiveValue, Coordinator } from "./streaming.js";
+import { ReactiveValue, Graph } from "./streaming.js";
 
 export class Constant<T> extends ReactiveValue<T> {
   constructor(
     public readonly value: T,
-    public readonly coordinator: Coordinator,
+    public readonly graph: Graph,
   ) {
     super();
-    coordinator.addReactive(this);
+    graph.addValue(this);
   }
 
   step(): void {}
