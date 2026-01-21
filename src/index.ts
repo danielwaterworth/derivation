@@ -4,7 +4,7 @@ import { External } from "./external.js";
 import { Input } from "./input.js";
 import { CounterInput } from "./counter-input.js";
 
-export { ReactiveValue, Graph } from "./streaming.js";
+export { ReactiveValue, Graph, FlattenStream } from "./streaming.js";
 export { Input } from "./input.js";
 export { Constant } from "./constant.js";
 export { External } from "./external.js";

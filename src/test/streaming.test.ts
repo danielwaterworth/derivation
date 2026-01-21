@@ -206,4 +206,97 @@ describe("streaming core", () => {
     sampler.dispose();
     expect(reg.value).not.toBeUndefined();
   });
+
+  it("nodes added during construction run immediately", () => {
+    const c = new Graph();
+    const order: string[] = [];
+    const nodes: External<number>[] = [];
+
+    // Parent creates child during construction
+    let child: External<number> | null = null;
+    const parent = new External(() => {
+      order.push("parent");
+      if (!child) {
+        child = new External(() => {
+          order.push("child");
+          return 2;
+        }, c);
+        nodes.push(child);
+      }
+      return 1;
+    }, c);
+    nodes.push(parent);
+
+    // During construction: parent's func runs first, then child's func runs
+    expect(order).toEqual(["parent", "child"]);
+
+    order.length = 0;
+    c.step();
+    // During step: child runs before parent (dependency order)
+    expect(order).toEqual(["child", "parent"]);
+  });
+
+  it("node created during step can read values from earlier nodes", () => {
+    const c = new Graph();
+    const nodes: External<number>[] = [];
+    let n = 10;
+    const src = new External(() => n, c);
+    nodes.push(src);
+
+    let childValue: number | undefined;
+    let child: External<number> | null = null;
+
+    const parent = new External(() => {
+      if (!child) {
+        child = new External(() => {
+          childValue = src.value * 2;
+          return childValue!;
+        }, c);
+        nodes.push(child);
+      }
+      return src.value;
+    }, c);
+    nodes.push(parent);
+
+    // Child ran during construction, read src.value = 10
+    expect(childValue).toBe(20);
+
+    n = 5;
+    c.step();
+    expect(childValue).toBe(10);
+  });
+
+  it("flatten unwraps nested ReactiveValue", () => {
+    const c = new Graph();
+
+    const inner1 = new Constant(10, c);
+    const inner2 = new Constant(20, c);
+
+    let currentInner = inner1;
+    const outer = new External(() => currentInner, c);
+
+    const flattened = outer.flatten();
+
+    expect(flattened.value).toBe(10);
+
+    currentInner = inner2;
+    c.step();
+    expect(flattened.value).toBe(20);
+  });
+
+  it("flatten tracks changes in both outer and inner", () => {
+    const c = new Graph();
+
+    let innerValue = 5;
+    const inner = new External(() => innerValue, c);
+
+    const outer = new Constant(inner, c);
+    const flattened = outer.flatten();
+
+    expect(flattened.value).toBe(5);
+
+    innerValue = 15;
+    c.step();
+    expect(flattened.value).toBe(15);
+  });
 });

@@ -86,17 +86,28 @@ export abstract class ReactiveValue<T> {
     r.setInput(this);
     return r;
   }
+
+  flatten<X>(this: ReactiveValue<ReactiveValue<X>>): ReactiveValue<X> {
+    return new FlattenStream(this, this.graph);
+  }
 }
 
 export class Graph {
-  private readonly streams = new WeakList<ReactiveValue<unknown>>();
+  private front = new WeakList<ReactiveValue<unknown>>();
+  private back = new WeakList<ReactiveValue<unknown>>();
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
 
   step(): void {
-    for (const stream of this.streams) {
+    this.front.reverse();
+    this.back = this.front;
+    this.front = new WeakList();
+
+    let stream;
+    while ((stream = this.back.pop()) !== undefined) {
       if (this.streamsTable.has(stream)) {
         stream.step();
+        this.front.push(stream);
       }
     }
     for (const callback of this.callbacks) {
@@ -109,7 +120,7 @@ export class Graph {
   }
 
   addValue(s: ReactiveValue<unknown>): void {
-    this.streams.add(s);
+    this.front.push(s);
     this.streamsTable.set(s, undefined);
   }
 
@@ -239,6 +250,27 @@ export class ZipStream<A, B, T> extends ReactiveValue<T> {
 
   step(): void {
     this._value = this.func(this.inputA.value, this.inputB.value);
+  }
+
+  get value(): T {
+    return this._value;
+  }
+}
+
+export class FlattenStream<T> extends ReactiveValue<T> {
+  private _value: T;
+
+  constructor(
+    private readonly outer: ReactiveValue<ReactiveValue<T>>,
+    public readonly graph: Graph,
+  ) {
+    super();
+    this._value = outer.value.value;
+    graph.addValue(this);
+  }
+
+  step(): void {
+    this._value = this.outer.value.value;
   }
 
   get value(): T {

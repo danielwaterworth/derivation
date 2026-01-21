@@ -1,6 +1,6 @@
 {
   "name": "derivation",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "Core graph and streaming infrastructure for incremental computation",
   "homepage": "https://github.com/derivationjs/derivation",
   "repository": {
