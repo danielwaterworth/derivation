@@ -11,11 +11,17 @@ export class CounterInput extends ReactiveValue<number> {
 
   add(weight: number): void {
     this.pending += weight;
+    this.graph.markDirtyNextStep(this);
   }
 
   step(): void {
+    const oldValue = this.current;
     this.current = this.pending;
     this.pending = 0;
+    if (oldValue !== this.current) {
+      this.invalidateDependents();
+    }
+    this.graph.markDirtyNextStep(this);
   }
 
   get value(): number {

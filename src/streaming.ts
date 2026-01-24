@@ -1,9 +1,10 @@
-import { WeakList } from "./weak-list.js";
 import { FractionalIndex } from "./fractional-index.js";
 import { DirtySet } from "./dirty-set.js";
+import { Dependents } from "./dependents.js";
 
 export abstract class ReactiveValue<T> {
   index!: FractionalIndex;
+  private readonly dependents = new Dependents<ReactiveValue<unknown>>();
 
   abstract step(): void;
   dispose(): void {
@@ -11,6 +12,20 @@ export abstract class ReactiveValue<T> {
   }
   abstract get value(): T;
   abstract get graph(): Graph;
+
+  addDependent(dependent: ReactiveValue<unknown>): void {
+    this.dependents.add(dependent);
+  }
+
+  removeDependent(dependent: ReactiveValue<unknown>): void {
+    this.dependents.delete(dependent);
+  }
+
+  protected invalidateDependents(): void {
+    for (const dependent of this.dependents) {
+      this.graph.markDirty(dependent);
+    }
+  }
 
   map<A>(f: (t: T) => A): ReactiveValue<A> {
     return new MapStream(this, f, this.graph);
@@ -97,51 +112,53 @@ export abstract class ReactiveValue<T> {
 }
 
 export class Graph {
-  private front = new WeakList<ReactiveValue<unknown>>();
-  private back = new DirtySet();
+  private dirtySet = new DirtySet();
+  private dirtyNextStep = new DirtySet();
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
+  private readonly externals = new Set<ReactiveValue<unknown>>();
   private nextGlobalIndex = 0;
   private nextNegativeIndex = -1;
   private lastProcessedNode: ReactiveValue<unknown> | null = null;
   private nextPrefix: ReadonlyArray<number> | null = null;
   private nextIndex = 0;
-  private lastAddedToFront: ReactiveValue<unknown> | null = null;
-
-  private addToFront(stream: ReactiveValue<unknown>): void {
-    if (this.lastAddedToFront !== null) {
-      if (!this.lastAddedToFront.index.lessThan(stream.index)) {
-        throw new Error(
-          `Stream index ${stream.index.toString()} must be greater than last added index ${this.lastAddedToFront.index.toString()}`
-        );
-      }
-    }
-    this.front.push(stream);
-    this.lastAddedToFront = stream;
-  }
+  private lastProcessedStream: ReactiveValue<unknown> | null = null;
+  private stepping = false;
 
   step(): void {
-    // Build dirty set from front list
-    this.back = new DirtySet();
-    for (const stream of this.front) {
-      this.back.add(stream);
+    this.stepping = true;
+    // Swap dirty sets
+    const temp = this.dirtySet;
+    this.dirtySet = this.dirtyNextStep;
+    this.dirtyNextStep = temp;
+    // Mark all externals as dirty
+    for (const external of this.externals) {
+      this.dirtySet.add(external);
     }
-    this.front = new WeakList();
-    this.lastAddedToFront = null;
+    this.lastProcessedStream = null;
 
     let stream;
-    while ((stream = this.back.pop()) !== undefined) {
+    while ((stream = this.dirtySet.pop()) !== undefined) {
       if (this.streamsTable.has(stream)) {
-        stream.step();
+        // Validate topological order
+        if (this.lastProcessedStream !== null) {
+          if (!this.lastProcessedStream.index.lessThan(stream.index)) {
+            throw new Error(
+              `Stream index ${stream.index.toString()} must be greater than last processed index ${this.lastProcessedStream.index.toString()}`
+            );
+          }
+        }
+        this.lastProcessedStream = stream;
         this.lastProcessedNode = stream;
         this.nextPrefix = null;
         this.nextIndex = 0;
-        this.addToFront(stream);
+        stream.step();
       }
     }
     this.lastProcessedNode = null;
     this.nextPrefix = null;
     this.nextIndex = 0;
+    this.stepping = false;
     for (const callback of this.callbacks) {
       callback();
     }
@@ -152,7 +169,7 @@ export class Graph {
   }
 
   addValue(s: ReactiveValue<unknown>): void {
-    if (this.back.isEmpty()) {
+    if (!this.stepping) {
       // Outside step - normal positive indices
       s.index = new FractionalIndex(this.nextGlobalIndex++);
     } else {
@@ -176,12 +193,27 @@ export class Graph {
         s.index = new FractionalIndex([...this.nextPrefix, this.nextIndex]);
       }
     }
-    this.addToFront(s);
     this.streamsTable.set(s, undefined);
   }
 
   afterStep(callback: () => void): void {
     this.callbacks.push(callback);
+  }
+
+  markDirty(s: ReactiveValue<unknown>): void {
+    this.dirtySet.add(s);
+  }
+
+  markDirtyNextStep(s: ReactiveValue<unknown>): void {
+    this.dirtyNextStep.add(s);
+  }
+
+  addExternal(s: ReactiveValue<unknown>): void {
+    this.externals.add(s);
+  }
+
+  removeExternal(s: ReactiveValue<unknown>): void {
+    this.externals.delete(s);
   }
 }
 
@@ -206,11 +238,18 @@ export class Register<T> extends ReactiveValue<T> {
   }
 
   step(): void {
+    const oldValue = this._value;
     this._value = this.nextValue;
+    if (oldValue !== this._value) {
+      this.invalidateDependents();
+    }
   }
 
   setNextValue(v: T): void {
-    this.nextValue = v;
+    if (this.nextValue !== v) {
+      this.nextValue = v;
+      this.graph.markDirtyNextStep(this);
+    }
   }
 
   setInput(input: ReactiveValue<T>): void {
@@ -230,6 +269,7 @@ export class Sampler<T> extends ReactiveValue<void> {
     public readonly graph: Graph,
   ) {
     super();
+    input.addDependent(this);
     this.step();
     graph.addValue(this);
   }
@@ -255,6 +295,7 @@ export class SinkStream<T> extends ReactiveValue<void> {
     public readonly graph: Graph,
   ) {
     super();
+    input.addDependent(this);
     graph.addValue(this);
     this.step();
   }
@@ -278,11 +319,16 @@ export class MapStream<A, T> extends ReactiveValue<T> {
   ) {
     super();
     this._value = func(input.value);
+    input.addDependent(this);
     graph.addValue(this);
   }
 
   step(): void {
+    const oldValue = this._value;
     this._value = this.func(this.input.value);
+    if (oldValue !== this._value) {
+      this.invalidateDependents();
+    }
   }
 
   get value(): T {
@@ -301,11 +347,17 @@ export class ZipStream<A, B, T> extends ReactiveValue<T> {
   ) {
     super();
     this._value = func(inputA.value, inputB.value);
+    inputA.addDependent(this);
+    inputB.addDependent(this);
     graph.addValue(this);
   }
 
   step(): void {
+    const oldValue = this._value;
     this._value = this.func(this.inputA.value, this.inputB.value);
+    if (oldValue !== this._value) {
+      this.invalidateDependents();
+    }
   }
 
   get value(): T {
@@ -315,18 +367,32 @@ export class ZipStream<A, B, T> extends ReactiveValue<T> {
 
 export class FlattenStream<T> extends ReactiveValue<T> {
   private _value: T;
+  private currentInner: ReactiveValue<T>;
 
   constructor(
     private readonly outer: ReactiveValue<ReactiveValue<T>>,
     public readonly graph: Graph,
   ) {
     super();
-    this._value = outer.value.value;
+    this.currentInner = outer.value;
+    this._value = this.currentInner.value;
+    outer.addDependent(this);
+    this.currentInner.addDependent(this);
     graph.addValue(this);
   }
 
   step(): void {
-    this._value = this.outer.value.value;
+    const newInner = this.outer.value;
+    if (newInner !== this.currentInner) {
+      this.currentInner.removeDependent(this);
+      this.currentInner = newInner;
+      this.currentInner.addDependent(this);
+    }
+    const oldValue = this._value;
+    this._value = this.currentInner.value;
+    if (oldValue !== this._value) {
+      this.invalidateDependents();
+    }
   }
 
   get value(): T {

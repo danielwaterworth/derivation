@@ -10,10 +10,20 @@ export class External<T> extends ReactiveValue<T> {
     super();
     this._value = func();
     graph.addValue(this);
+    graph.addExternal(this);
+  }
+
+  dispose(): void {
+    this.graph.removeExternal(this);
+    this.graph.removeValue(this);
   }
 
   step(): void {
+    const oldValue = this._value;
     this._value = this.func();
+    if (oldValue !== this._value) {
+      this.invalidateDependents();
+    }
   }
 
   get value(): T {

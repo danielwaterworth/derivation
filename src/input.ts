@@ -16,10 +16,15 @@ export class Input<T> extends ReactiveValue<T> {
 
   push(value: T): void {
     this.pending = value;
+    this.graph.markDirtyNextStep(this);
   }
 
   step(): void {
+    const oldValue = this.current;
     this.current = this.pending;
+    if (oldValue !== this.current) {
+      this.invalidateDependents();
+    }
   }
 
   get value(): T {
