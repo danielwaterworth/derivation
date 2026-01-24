@@ -1,5 +1,6 @@
 import { WeakList } from "./weak-list.js";
 import { FractionalIndex } from "./fractional-index.js";
+import { DirtySet } from "./dirty-set.js";
 
 export abstract class ReactiveValue<T> {
   index!: FractionalIndex;
@@ -97,7 +98,7 @@ export abstract class ReactiveValue<T> {
 
 export class Graph {
   private front = new WeakList<ReactiveValue<unknown>>();
-  private back = new WeakList<ReactiveValue<unknown>>();
+  private back = new DirtySet();
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
   private nextGlobalIndex = 0;
@@ -120,8 +121,11 @@ export class Graph {
   }
 
   step(): void {
-    this.front.reverse();
-    this.back = this.front;
+    // Build dirty set from front list
+    this.back = new DirtySet();
+    for (const stream of this.front) {
+      this.back.add(stream);
+    }
     this.front = new WeakList();
     this.lastAddedToFront = null;
 
