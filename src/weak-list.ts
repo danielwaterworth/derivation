@@ -37,6 +37,11 @@ export class WeakList<T extends object> implements Iterable<T> {
     this.items.reverse();
   }
 
+  isEmpty(): boolean {
+    this.popDead();
+    return this.items.length === 0;
+  }
+
   *[Symbol.iterator](): Iterator<T> {
     const newItems: WeakRef<T>[] = [];
 

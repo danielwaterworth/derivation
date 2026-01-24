@@ -1,6 +1,9 @@
 import { WeakList } from "./weak-list.js";
+import { FractionalIndex } from "./fractional-index.js";
 
 export abstract class ReactiveValue<T> {
+  index!: FractionalIndex;
+
   abstract step(): void;
   dispose(): void {
     this.graph.removeValue(this);
@@ -97,19 +100,44 @@ export class Graph {
   private back = new WeakList<ReactiveValue<unknown>>();
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
+  private nextGlobalIndex = 0;
+  private nextNegativeIndex = -1;
+  private lastProcessedNode: ReactiveValue<unknown> | null = null;
+  private nextPrefix: ReadonlyArray<number> | null = null;
+  private nextIndex = 0;
+  private lastAddedToFront: ReactiveValue<unknown> | null = null;
+
+  private addToFront(stream: ReactiveValue<unknown>): void {
+    if (this.lastAddedToFront !== null) {
+      if (!this.lastAddedToFront.index.lessThan(stream.index)) {
+        throw new Error(
+          `Stream index ${stream.index.toString()} must be greater than last added index ${this.lastAddedToFront.index.toString()}`
+        );
+      }
+    }
+    this.front.push(stream);
+    this.lastAddedToFront = stream;
+  }
 
   step(): void {
     this.front.reverse();
     this.back = this.front;
     this.front = new WeakList();
+    this.lastAddedToFront = null;
 
     let stream;
     while ((stream = this.back.pop()) !== undefined) {
       if (this.streamsTable.has(stream)) {
         stream.step();
-        this.front.push(stream);
+        this.lastProcessedNode = stream;
+        this.nextPrefix = null;
+        this.nextIndex = 0;
+        this.addToFront(stream);
       }
     }
+    this.lastProcessedNode = null;
+    this.nextPrefix = null;
+    this.nextIndex = 0;
     for (const callback of this.callbacks) {
       callback();
     }
@@ -120,7 +148,31 @@ export class Graph {
   }
 
   addValue(s: ReactiveValue<unknown>): void {
-    this.front.push(s);
+    if (this.back.isEmpty()) {
+      // Outside step - normal positive indices
+      s.index = new FractionalIndex(this.nextGlobalIndex++);
+    } else {
+      // Inside step
+      if (this.lastProcessedNode === null) {
+        // Before processing any nodes - use negative indices
+        s.index = new FractionalIndex(this.nextNegativeIndex--);
+      } else {
+        // During step - split last processed node's index
+        if (this.nextPrefix === null) {
+          // First child: create split
+          this.nextPrefix = this.lastProcessedNode.index.getParts();
+          this.lastProcessedNode.index = new FractionalIndex([
+            ...this.nextPrefix,
+            1,
+          ]);
+          this.nextIndex = 2;
+        } else {
+          this.nextIndex++;
+        }
+        s.index = new FractionalIndex([...this.nextPrefix, this.nextIndex]);
+      }
+    }
+    this.addToFront(s);
     this.streamsTable.set(s, undefined);
   }
 
