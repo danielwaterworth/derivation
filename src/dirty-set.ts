@@ -3,15 +3,21 @@ import { ReactiveValue } from "./streaming.js";
 
 export class DirtySet {
   private readonly set = new Set<ReactiveValue<unknown>>();
-  private readonly heap = new Heap<ReactiveValue<unknown>>((a, b) =>
-    a.index.compare(b.index)
-  );
+  private heap = new Heap<ReactiveValue<unknown>>((a, b) => a.height - b.height);
 
   add(value: ReactiveValue<unknown>): void {
     if (!this.set.has(value)) {
       this.set.add(value);
       this.heap.push(value);
     }
+  }
+
+  rebuild(): void {
+    const heap = new Heap<ReactiveValue<unknown>>((a, b) => a.height - b.height);
+    for (const value of this.set) {
+      heap.push(value);
+    }
+    this.heap = heap;
   }
 
   pop(): ReactiveValue<unknown> | undefined {

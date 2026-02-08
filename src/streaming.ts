@@ -1,9 +1,8 @@
-import { FractionalIndex } from "./fractional-index.js";
 import { DirtySet } from "./dirty-set.js";
 import { Dependents } from "./dependents.js";
 
 export abstract class ReactiveValue<T> {
-  index!: FractionalIndex;
+  height = 0;
   private readonly dependents = new Dependents<ReactiveValue<unknown>>();
 
   abstract step(): void;
@@ -15,6 +14,7 @@ export abstract class ReactiveValue<T> {
 
   addDependent(dependent: ReactiveValue<unknown>): void {
     this.dependents.add(dependent);
+    dependent.ensureHeight(this.height + 1);
   }
 
   removeDependent(dependent: ReactiveValue<unknown>): void {
@@ -24,6 +24,15 @@ export abstract class ReactiveValue<T> {
   protected invalidateDependents(): void {
     for (const dependent of this.dependents) {
       this.graph.markDirty(dependent);
+    }
+  }
+
+  ensureHeight(minHeight: number): void {
+    if (this.height >= minHeight) return;
+    this.height = minHeight;
+    this.graph.onHeightIncreased();
+    for (const dependent of this.dependents) {
+      dependent.ensureHeight(minHeight + 1);
     }
   }
 
@@ -117,11 +126,6 @@ export class Graph {
   private readonly streamsTable = new WeakMap<ReactiveValue<unknown>, void>();
   private readonly callbacks: (() => void)[] = [];
   private readonly externals = new Set<ReactiveValue<unknown>>();
-  private nextGlobalIndex = 0;
-  private nextNegativeIndex = -1;
-  private lastProcessedNode: ReactiveValue<unknown> | null = null;
-  private nextPrefix: ReadonlyArray<number> | null = null;
-  private nextIndex = 0;
   private lastProcessedStream: ReactiveValue<unknown> | null = null;
   private stepping = false;
 
@@ -138,26 +142,24 @@ export class Graph {
     this.lastProcessedStream = null;
 
     let stream;
+    let lastProcessedHeight = -1;
     while ((stream = this.dirtySet.pop()) !== undefined) {
       if (this.streamsTable.has(stream)) {
-        // Validate topological order
-        if (this.lastProcessedStream !== null) {
-          if (!this.lastProcessedStream.index.lessThan(stream.index)) {
+        // Validate topological order using height at pop time, not current
+        // height of lastProcessedStream (which may have been bumped during
+        // its own step, e.g. FlattenStream switching to a higher inner stream).
+        if (lastProcessedHeight >= 0) {
+          if (lastProcessedHeight > stream.height) {
             throw new Error(
-              `Stream index ${stream.index.toString()} must be greater than last processed index ${this.lastProcessedStream.index.toString()}`
+              `Stream height ${stream.height} must be >= last processed height ${lastProcessedHeight}`,
             );
           }
         }
+        lastProcessedHeight = stream.height;
         this.lastProcessedStream = stream;
-        this.lastProcessedNode = stream;
-        this.nextPrefix = null;
-        this.nextIndex = 0;
         stream.step();
       }
     }
-    this.lastProcessedNode = null;
-    this.nextPrefix = null;
-    this.nextIndex = 0;
     this.stepping = false;
     for (const callback of this.callbacks) {
       callback();
@@ -169,30 +171,6 @@ export class Graph {
   }
 
   addValue(s: ReactiveValue<unknown>): void {
-    if (!this.stepping) {
-      // Outside step - normal positive indices
-      s.index = new FractionalIndex(this.nextGlobalIndex++);
-    } else {
-      // Inside step
-      if (this.lastProcessedNode === null) {
-        // Before processing any nodes - use negative indices
-        s.index = new FractionalIndex(this.nextNegativeIndex--);
-      } else {
-        // During step - split last processed node's index
-        if (this.nextPrefix === null) {
-          // First child: create split
-          this.nextPrefix = this.lastProcessedNode.index.getParts();
-          this.lastProcessedNode.index = new FractionalIndex([
-            ...this.nextPrefix,
-            1,
-          ]);
-          this.nextIndex = 2;
-        } else {
-          this.nextIndex++;
-        }
-        s.index = new FractionalIndex([...this.nextPrefix, this.nextIndex]);
-      }
-    }
     this.streamsTable.set(s, undefined);
   }
 
@@ -200,7 +178,21 @@ export class Graph {
     this.callbacks.push(callback);
   }
 
+  onHeightIncreased(): void {
+    this.dirtySet.rebuild();
+    this.dirtyNextStep.rebuild();
+  }
+
   markDirty(s: ReactiveValue<unknown>): void {
+    if (
+      this.stepping &&
+      this.lastProcessedStream !== null &&
+      s.height < this.lastProcessedStream.height
+    ) {
+      throw new Error(
+        `Cannot mark dirty value with height ${s.height} before last processed height ${this.lastProcessedStream.height}`,
+      );
+    }
     this.dirtySet.add(s);
   }
 

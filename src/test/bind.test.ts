@@ -4,7 +4,7 @@ import { Input } from "../input.js";
 import { Constant } from "../constant.js";
 
 describe("building nodes in accumulate", () => {
-  it.skip("allows accumulate nodes build nodes that refer to nodes in the past", () => {
+  it("allows accumulate nodes build nodes that refer to nodes in the past", () => {
     const g = new Graph();
     const initial: ReactiveValue<number> = new Constant(0, g);
     const source1 = new Input(1, g);
