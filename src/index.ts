@@ -1,30 +1,32 @@
-import { Graph, ReactiveValue } from "./streaming.js";
+import { Graph, ReactiveValue, Input, Counter } from "./streaming.js";
 import { Constant } from "./constant.js";
 import { External } from "./external.js";
-import { Input } from "./input.js";
-import { CounterInput } from "./counter-input.js";
+import { InternalInput } from "./input.js";
+import { InternalCounterInput } from "./counter-input.js";
 
-export { ReactiveValue, Graph, FlattenStream } from "./streaming.js";
-export { Input } from "./input.js";
-export { Constant } from "./constant.js";
-export { External } from "./external.js";
-export { CounterInput } from "./counter-input.js";
+export {
+  Graph,
+  BindStream,
+  ReactiveValue,
+  Input,
+  Counter,
+} from "./streaming.js";
 
 export function constantValue<T>(graph: Graph, value: T): ReactiveValue<T> {
-  return new Constant(value, graph);
+  return ReactiveValue.fromNode(new Constant(value, graph));
 }
 
 export function inputValue<T>(graph: Graph, initial: T): Input<T> {
-  return new Input(initial, graph);
+  return new Input(new InternalInput(initial, graph));
 }
 
 export function externalValue<T>(
   graph: Graph,
   getter: () => T,
 ): ReactiveValue<T> {
-  return new External(getter, graph);
+  return ReactiveValue.fromNode(new External(getter, graph));
 }
 
-export function counterValue(graph: Graph): ReactiveValue<number> {
-  return new CounterInput(graph);
+export function counterValue(graph: Graph): Counter {
+  return new Counter(new InternalCounterInput(graph));
 }

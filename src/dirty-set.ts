@@ -1,11 +1,13 @@
 import { Heap } from "heap-js";
-import { ReactiveValue } from "./streaming.js";
+import { InternalReactiveValue } from "./streaming.js";
 
 export class DirtySet {
-  private readonly set = new Set<ReactiveValue<unknown>>();
-  private heap = new Heap<ReactiveValue<unknown>>((a, b) => a.height - b.height);
+  private readonly set = new Set<InternalReactiveValue<unknown>>();
+  private heap = new Heap<InternalReactiveValue<unknown>>(
+    (a, b) => a.height - b.height,
+  );
 
-  add(value: ReactiveValue<unknown>): void {
+  add(value: InternalReactiveValue<unknown>): void {
     if (!this.set.has(value)) {
       this.set.add(value);
       this.heap.push(value);
@@ -13,14 +15,16 @@ export class DirtySet {
   }
 
   rebuild(): void {
-    const heap = new Heap<ReactiveValue<unknown>>((a, b) => a.height - b.height);
+    const heap = new Heap<InternalReactiveValue<unknown>>(
+      (a, b) => a.height - b.height,
+    );
     for (const value of this.set) {
       heap.push(value);
     }
     this.heap = heap;
   }
 
-  pop(): ReactiveValue<unknown> | undefined {
+  pop(): InternalReactiveValue<unknown> | undefined {
     const value = this.heap.pop();
     if (value !== undefined) {
       this.set.delete(value);
@@ -28,8 +32,12 @@ export class DirtySet {
     return value;
   }
 
-  has(value: ReactiveValue<unknown>): boolean {
+  has(value: InternalReactiveValue<unknown>): boolean {
     return this.set.has(value);
+  }
+
+  delete(value: InternalReactiveValue<unknown>): void {
+    this.set.delete(value);
   }
 
   get size(): number {

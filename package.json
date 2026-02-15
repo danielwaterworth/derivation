@@ -1,6 +1,6 @@
 {
   "name": "derivation",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Core graph and streaming infrastructure for incremental computation",
   "homepage": "https://github.com/derivationjs/derivation",
   "repository": {
@@ -18,6 +18,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js",
+      "require": "./dist/internal.cjs"
     }
   },
   "files": [

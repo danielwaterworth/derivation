@@ -36,17 +36,15 @@ b.push(3);
 graph.step(); // outputs 10
 ```
 
-## 🧹 Garbage Collection
+## 🧹 Lifecycle
 
-The nodes in the graph have only weak references to their dependents, but
-derived values have strong references to their dependencies. When a derived
-value becomes unreachable, it will naturally drop out of the update loop.
+`ReactiveValue`s are references to underlying streams. These references can be
+explicitly disposed of with `.dispose()`, otherwise they'll be disposed of when
+they are GC'd.
 
-If you want to stop updates manually, call:
-
-```ts
-value.dispose();
-```
+When an underlying stream has no more references, it'll stop being computed
+when it has no more references, either within the computation graph, or via
+`ReactiveValue` references.
 
 ## ✨ Types
 
@@ -65,7 +63,10 @@ ReactiveValue provides several operators for combining and transforming values:
 * `zip(other, f)` - combine two values: `ReactiveValue<A>`, `ReactiveValue<B>` → `ReactiveValue<C>`
 * `accumulate(initial, f)` - fold over time with state
 * `delay(initial)` - delay by one step
-* `flatten()` - unwrap nested values: `ReactiveValue<ReactiveValue<A>>` → `ReactiveValue<A>`
+* `bind(f)` - dynamic switch: `ReactiveValue<A>`, `A -> ReactiveValue<B>` → `ReactiveValue<B>`.
+  `bind` takes ownership of wrappers returned by `f` and disposes old/current
+  wrappers as it switches/tears down. The callback must return a fresh
+  `ReactiveValue` wrapper on each invocation (for example `x.clone()`).
 * `sink(f)` - observe values (side effects)
 
 ## 🔄 Dynamic Graph Construction

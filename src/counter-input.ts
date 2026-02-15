@@ -1,6 +1,6 @@
-import { ReactiveValue, Graph } from "./streaming.js";
+import { InternalReactiveValue, Graph } from "./streaming.js";
 
-export class CounterInput extends ReactiveValue<number> {
+export class InternalCounterInput extends InternalReactiveValue<number> {
   private current = 0;
   private pending = 0;
 
@@ -25,6 +25,7 @@ export class CounterInput extends ReactiveValue<number> {
   }
 
   get value(): number {
+    this.assertNotDisposed();
     return this.current;
   }
 }

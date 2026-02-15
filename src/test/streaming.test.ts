@@ -1,8 +1,43 @@
 import { describe, it, expect } from "vitest";
-import { Graph, Register, Sampler } from "../streaming.js";
+import {
+  Graph,
+  InternalReactiveValue,
+  Register,
+  ReactiveValue,
+  Sampler,
+} from "../streaming.js";
 import { External } from "../external.js";
 import { Constant } from "../constant.js";
-import { CounterInput } from "../counter-input.js";
+import { InternalCounterInput } from "../counter-input.js";
+import { externalValue } from "../index.js";
+
+class HarnessNode extends InternalReactiveValue<number> {
+  private _value: number;
+
+  constructor(
+    value: number,
+    public readonly graph: Graph,
+  ) {
+    super();
+    this._value = value;
+    graph.addValue(this);
+  }
+
+  step(): void {}
+
+  get value(): number {
+    this.assertNotDisposed();
+    return this._value;
+  }
+
+  attach(input: InternalReactiveValue<unknown>): void {
+    this.trackInput(input);
+  }
+
+  detach(input: InternalReactiveValue<unknown>): void {
+    this.untrackInput(input);
+  }
+}
 
 describe("streaming core", () => {
   it("constant stays constant across steps", () => {
@@ -13,6 +48,13 @@ describe("streaming core", () => {
     c.step();
     expect(s.value).toBe(123);
     c.step();
+    expect(s.value).toBe(123);
+  });
+
+  it("constant step is a no-op", () => {
+    const c = new Graph();
+    const s = new Constant(123, c);
+    s.step();
     expect(s.value).toBe(123);
   });
 
@@ -102,6 +144,134 @@ describe("streaming core", () => {
     expect(sum.value).toBe(3);
   });
 
+  it("register does not invalidate dependents when stepped without a value change", () => {
+    const c = new Graph();
+    const reg = new Register(1, c);
+    let computes = 0;
+    const derived = reg.map((x) => {
+      computes += 1;
+      return x + 1;
+    });
+
+    expect(computes).toBe(1);
+    c.markDirtyNextStep(reg);
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
+    reg.dispose();
+  });
+
+  it("register setNextValue is a no-op when assigning the same value", () => {
+    const c = new Graph();
+    const reg = new Register(5, c);
+    let computes = 0;
+    const derived = reg.map((x) => {
+      computes += 1;
+      return x;
+    });
+
+    expect(computes).toBe(1);
+    reg.setNextValue(5);
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
+    reg.dispose();
+  });
+
+  it("dispose on accumulated observer tears down feedback sampler", () => {
+    const c = new Graph();
+    let n = 1;
+    let reducerRuns = 0;
+
+    const src = new External(() => n, c);
+    const sum = ReactiveValue.fromNode(
+      src.accumulate(0, (acc, value) => {
+        reducerRuns += 1;
+        return acc + value;
+      }),
+    );
+
+    expect(reducerRuns).toBe(1);
+    sum.dispose();
+
+    n = 5;
+    c.step();
+    n = 9;
+    c.step();
+
+    expect(reducerRuns).toBe(1);
+  });
+
+  it("map does not invalidate dependents when mapped value is unchanged", () => {
+    const c = new Graph();
+    let n = 0;
+    const src = new External(() => n, c);
+    const mapped = src.map(() => 1);
+    let computes = 0;
+    const derived = mapped.map((x) => {
+      computes += 1;
+      return x + 1;
+    });
+
+    expect(computes).toBe(1);
+    n = 10;
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
+    mapped.dispose();
+  });
+
+  it("zip does not invalidate dependents when combined value is unchanged", () => {
+    const c = new Graph();
+    let a = 1;
+    let b = 2;
+    const sa = new External(() => a, c);
+    const sb = new External(() => b, c);
+    const zipped = sa.zip(sb, (x, y) => x + y);
+    let computes = 0;
+    const derived = zipped.map((x) => {
+      computes += 1;
+      return x;
+    });
+
+    expect(computes).toBe(1);
+    a = 2;
+    b = 1;
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
+    zipped.dispose();
+  });
+
+  it("bind switch does not invalidate dependents when value stays equal", () => {
+    const c = new Graph();
+    let useHigh = false;
+    const selector = new External(() => useHigh, c);
+    const low = new Constant(10, c);
+    const high = new Constant(10, c);
+    const bound = selector.bind((flag) =>
+      ReactiveValue.fromNode(flag ? high : low),
+    );
+    let computes = 0;
+    const derived = bound.map((x) => {
+      computes += 1;
+      return x;
+    });
+
+    expect(computes).toBe(1);
+    useHigh = true;
+    c.step();
+    expect(computes).toBe(1);
+    expect(bound.value).toBe(10);
+
+    derived.dispose();
+    bound.dispose();
+  });
+
   it("sink runs a callback initially and each step", () => {
     const c = new Graph();
     let n = 0;
@@ -131,7 +301,7 @@ describe("streaming core", () => {
 
     src.dispose();
     c.step();
-    expect(src.value).toBe(2);
+    expect(() => src.value).toThrow("Cannot access a disposed reactive value");
   });
 
   it("zip2/zip3/zip4/zip5 combine multiple streams", () => {
@@ -158,7 +328,20 @@ describe("streaming core", () => {
     expect(s.value).toBe(1);
     s.dispose();
     c.step();
-    expect(s.value).toBe(1);
+    expect(() => s.value).toThrow("Cannot access a disposed reactive value");
+  });
+
+  it("disposed external does not step from stale dirty queue entries", () => {
+    const c = new Graph();
+    let runs = 0;
+    const s = new External(() => ++runs, c);
+
+    expect(runs).toBe(1);
+    c.markDirtyNextStep(s);
+    s.dispose();
+    c.step();
+
+    expect(runs).toBe(1);
   });
 
   it("delay and accumulate behave correctly", () => {
@@ -183,7 +366,7 @@ describe("streaming core", () => {
 
   it("CounterInput updates correctly", () => {
     const c = new Graph();
-    const counter = new CounterInput(c);
+    const counter = new InternalCounterInput(c);
 
     counter.add(5);
     expect(counter.value).toBe(0);
@@ -193,6 +376,39 @@ describe("streaming core", () => {
 
     c.step();
     expect(counter.value).toBe(0);
+  });
+
+  it("CounterInput add(0) does not invalidate dependents", () => {
+    const c = new Graph();
+    const counter = new InternalCounterInput(c);
+    let computes = 0;
+    const derived = counter.map((x) => {
+      computes += 1;
+      return x + 1;
+    });
+
+    expect(computes).toBe(1);
+    counter.add(0);
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
+  });
+
+  it("CounterInput does not invalidate dependents when value is unchanged", () => {
+    const c = new Graph();
+    const counter = new InternalCounterInput(c);
+    let computes = 0;
+    const derived = counter.map((x) => {
+      computes += 1;
+      return x + 1;
+    });
+
+    expect(computes).toBe(1);
+    c.step();
+    expect(computes).toBe(1);
+
+    derived.dispose();
   });
 
   it("Sampler updates register values correctly", () => {
@@ -205,6 +421,74 @@ describe("streaming core", () => {
     expect(typeof reg.value).toBe("number");
     sampler.dispose();
     expect(reg.value).not.toBeUndefined();
+  });
+
+  it("Sampler value is undefined while active and throws after dispose", () => {
+    const c = new Graph();
+    const src = new External(() => 1, c);
+    const reg = new Register(0, c);
+    const sampler = new Sampler(src, reg, c);
+
+    expect(sampler.value).toBeUndefined();
+    sampler.dispose();
+    expect(() => sampler.value).toThrow("Cannot access a disposed reactive value");
+  });
+
+  it("SinkStream value is undefined while active and throws after dispose", () => {
+    const c = new Graph();
+    const src = new External(() => 1, c);
+    const sink = src.sink(() => undefined);
+
+    expect(sink.value).toBeUndefined();
+    sink.dispose();
+    expect(() => sink.value).toThrow("Cannot access a disposed reactive value");
+  });
+
+  it("disposing an internal node twice is a no-op", () => {
+    const c = new Graph();
+    const s = new External(() => 1, c);
+
+    expect(() => s.dispose()).not.toThrow();
+    expect(() => s.dispose()).not.toThrow();
+  });
+
+  it("wrapper dispose is idempotent even when node is already disposed", () => {
+    const c = new Graph();
+    const node = new External(() => 1, c);
+    node.dispose();
+
+    const ref = ReactiveValue.fromNode(node);
+    expect(() => ref.value).toThrow("Cannot access a disposed reactive value");
+    expect(() => ref.dispose()).not.toThrow();
+    expect(() => ref.dispose()).not.toThrow();
+    expect(ref.isReleased).toBe(true);
+  });
+
+  it("internal helper methods no-op on disposed/missing references", () => {
+    const c = new Graph();
+    const src = new HarnessNode(1, c);
+    const dep = new HarnessNode(2, c);
+
+    dep.attach(src);
+    dep.detach(src);
+    dep.detach(src);
+
+    src.dispose();
+    expect(() => src.addDependent(dep)).not.toThrow();
+    expect(() => src.ensureHeight(10)).not.toThrow();
+    expect(src.height).toBe(0);
+
+    dep.dispose();
+  });
+
+  it("public externalValue constructor returns a reactive wrapper", () => {
+    const c = new Graph();
+    let n = 0;
+    const src = externalValue(c, () => ++n);
+
+    expect(src.value).toBe(1);
+    c.step();
+    expect(src.value).toBe(2);
   });
 
   it("nodes added during construction run immediately", () => {
@@ -264,39 +548,5 @@ describe("streaming core", () => {
     n = 5;
     c.step();
     expect(childValue).toBe(10);
-  });
-
-  it("flatten unwraps nested ReactiveValue", () => {
-    const c = new Graph();
-
-    const inner1 = new Constant(10, c);
-    const inner2 = new Constant(20, c);
-
-    let currentInner = inner1;
-    const outer = new External(() => currentInner, c);
-
-    const flattened = outer.flatten();
-
-    expect(flattened.value).toBe(10);
-
-    currentInner = inner2;
-    c.step();
-    expect(flattened.value).toBe(20);
-  });
-
-  it("flatten tracks changes in both outer and inner", () => {
-    const c = new Graph();
-
-    let innerValue = 5;
-    const inner = new External(() => innerValue, c);
-
-    const outer = new Constant(inner, c);
-    const flattened = outer.flatten();
-
-    expect(flattened.value).toBe(5);
-
-    innerValue = 15;
-    c.step();
-    expect(flattened.value).toBe(15);
   });
 });

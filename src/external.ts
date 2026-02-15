@@ -1,6 +1,6 @@
-import { ReactiveValue, Graph } from "./streaming.js";
+import { InternalReactiveValue, Graph } from "./streaming.js";
 
-export class External<T> extends ReactiveValue<T> {
+export class External<T> extends InternalReactiveValue<T> {
   private _value: T;
 
   constructor(
@@ -14,8 +14,7 @@ export class External<T> extends ReactiveValue<T> {
   }
 
   dispose(): void {
-    this.graph.removeExternal(this);
-    this.graph.removeValue(this);
+    super.dispose();
   }
 
   step(): void {
@@ -27,6 +26,7 @@ export class External<T> extends ReactiveValue<T> {
   }
 
   get value(): T {
+    this.assertNotDisposed();
     return this._value;
   }
 }

@@ -1,13 +1,21 @@
-import { ReactiveValue, Graph } from "./streaming.js";
+import { InternalReactiveValue, Graph } from "./streaming.js";
 
-export class Constant<T> extends ReactiveValue<T> {
+export class Constant<T> extends InternalReactiveValue<T> {
+  private readonly _value: T;
+
   constructor(
-    public readonly value: T,
+    value: T,
     public readonly graph: Graph,
   ) {
     super();
+    this._value = value;
     graph.addValue(this);
   }
 
   step(): void {}
+
+  get value(): T {
+    this.assertNotDisposed();
+    return this._value;
+  }
 }
