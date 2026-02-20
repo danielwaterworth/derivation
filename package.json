@@ -34,16 +34,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "prepack": "rm -rf dist && npm run lint && npm run typecheck && npm run test"
+    "prepack": "rm -rf dist && npm run typecheck && npm run test"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.55.0",
-    "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^9.0.0",
-    "eslint-plugin-import": "^2.32.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
